@@ -9,6 +9,8 @@
   "license": "ISC",
   "dependencies": {
     "@caretaker/agent": "*",
+    "@or-sdk/lookup": "^1.2.0",
+    "dedent": "^1.5.1",
     "langchain": "^0.0.151"
   },
   "devDependencies": {

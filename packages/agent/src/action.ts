@@ -1,12 +1,12 @@
 import type { Agent } from './agent';
 
-interface ActionInput {
+export interface ActionInput {
   input: string;
   agent: Agent;
 }
 
 export abstract class Action {
-  abstract get exit(): bool;
+  abstract get exit(): boolean;
   abstract get kind(): string;
   abstract get description(): string;
 

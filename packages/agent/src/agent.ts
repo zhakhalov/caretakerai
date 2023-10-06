@@ -50,13 +50,6 @@ export class Agent implements AgentPrams {
     Object.assign(this, defaults, params);
   }
 
-  parseExperience(input: string) {
-    return Promise.all(input
-      .split(EXPERIENCE_SEP)
-      .map(text => Experience.parse(text, this.tokenCounter))
-    );
-  }
-
   async complete(experienceTemplate: Experience) {
     const { kind, order } = experienceTemplate;
 
@@ -73,7 +66,7 @@ export class Agent implements AgentPrams {
     })
 
     const text = `${kind} ${order}: ${completion}`;
-    return this.parseExperience(text);
+    return Agent.parseExperience(text, this.tokenCounter);
   }
 
   async think(latestExperience: Experience) {
@@ -81,7 +74,7 @@ export class Agent implements AgentPrams {
       kind: ExperienceKind.Thought,
       order: latestExperience.order + 1,
       input: '',
-    })))); 
+    }))));
   }
 
   async act(latestExperience: Experience) {
@@ -131,5 +124,12 @@ export class Agent implements AgentPrams {
         throw new Error(`Experience "${latestExperience.kind}" is not permitted.`);
       }
     }
+  }
+
+  static parseExperience(input: string, tokenCounter?: TokenCounter) {
+    return Promise.all(input
+      .split(EXPERIENCE_SEP)
+      .map(text => Experience.parse(text, tokenCounter))
+    );
   }
 }
