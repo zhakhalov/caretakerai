@@ -10,7 +10,11 @@ export abstract class Action {
   abstract get kind(): string;
   abstract get description(): string;
 
-  abstract execute(input: ActionInput): Promise<string>
+  abstract execute(input: ActionInput): Promise<string>;
+
+  toString() {
+    return `- ${this.kind}: ${this.description}`
+  }
 
   static parse(text: string) {
     const [kind, ...rest] = text.split('\n')

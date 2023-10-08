@@ -16,6 +16,7 @@ interface AgentPrams {
   template?: BasePromptTemplate;
   capExperienceAfterTokens?: number;
   tokenCounter?: TokenCounter;
+  stop?: string[]
 }
 
 export class Agent implements AgentPrams {
@@ -27,6 +28,21 @@ export class Agent implements AgentPrams {
   template?: BasePromptTemplate;
   capExperienceAfterTokens?: number;
   tokenCounter?: TokenCounter;
+  stop?: string[]
+
+  static defaults = {
+    template: PromptTemplate.fromTemplate(TEMPLATE),
+    stop: [`//${ExperienceKind.Observation}`]
+  }
+
+  static parseExperience(input: string, tokenCounter?: TokenCounter) {
+    return Promise.all(input
+      .split(EXPERIENCE_SEP)
+      .map(text => text.trim())
+      .filter(text => text)
+      .map(text => Experience.parse(text.trim(), tokenCounter))
+    );
+  }
 
   constructor(params: AgentPrams) {
     const { actions, experience } = params;
@@ -43,34 +59,32 @@ export class Agent implements AgentPrams {
       throw new Error('Lastest experience must be of Observation kind');
     }
 
-    const defaults = {
-      template: PromptTemplate.fromTemplate(TEMPLATE),
-    }
+    Object.assign(this, Agent.defaults, params);
+  }
 
-    Object.assign(this, defaults, params);
+  appendExperience(...experience: Experience[]) {
+    experience.forEach(e => console.log(e.toString()));
+
+    this.experience.push(...experience)
   }
 
   async complete(experienceTemplate: Experience) {
-    const { kind, order } = experienceTemplate;
-
     const completion = await RunnableSequence.from([
       this.template!,
-      // TODO: make somre more nifty
-      this.llm.bind({ stop: [`.:${ExperienceKind.Observation}:.`] }), // Do not allow LLMs to generate observataions
+      this.llm.bind({ stop: this.stop }), // Do not allow LLMs to generate observataions
       new StringOutputParser(),
     ]).invoke({
       instruction: this.instruction,
       actions: this.actions.map(a => a.toString()).join(ACTION_SEP),
-      example: this.experience.map(e => e.toString()).join(EXPERIENCE_SEP),
-      experience: [...this.experience, experienceTemplate].map(e => e.toString()).join(EXPERIENCE_SEP),
+      example: this.example.map(e => e.toString()).join(`\n${EXPERIENCE_SEP}\n`),
+      experience: [...this.experience, experienceTemplate].map(e => e.toString()).join(`\n${EXPERIENCE_SEP}\n`),
     })
 
-    const text = `${kind} ${order}: ${completion}`;
-    return Agent.parseExperience(text, this.tokenCounter);
+    return Agent.parseExperience(experienceTemplate.toString() + completion.trim(), this.tokenCounter);
   }
 
   async think(latestExperience: Experience) {
-   this.experience.push(...(await this.complete(new Experience({
+   this.appendExperience(...(await this.complete(new Experience({
       kind: ExperienceKind.Thought,
       order: latestExperience.order + 1,
       input: '',
@@ -78,9 +92,9 @@ export class Agent implements AgentPrams {
   }
 
   async act(latestExperience: Experience) {
-    this.experience.push(...(await this.complete(new Experience({
+    this.appendExperience(...(await this.complete(new Experience({
       kind: ExperienceKind.Action,
-      order: latestExperience.order + 1,
+      order: latestExperience.order,
       input: '',
     }))));
   }
@@ -95,9 +109,9 @@ export class Agent implements AgentPrams {
 
     const observation = await action.execute({ agent: this, input })
 
-    this.experience.push(new Experience({
+    this.appendExperience(new Experience({
       kind: ExperienceKind.Observation,
-      order: latestExperience.order + 1,
+      order: latestExperience.order,
       input: observation,
     }));
 
@@ -124,12 +138,5 @@ export class Agent implements AgentPrams {
         throw new Error(`Experience "${latestExperience.kind}" is not permitted.`);
       }
     }
-  }
-
-  static parseExperience(input: string, tokenCounter?: TokenCounter) {
-    return Promise.all(input
-      .split(EXPERIENCE_SEP)
-      .map(text => Experience.parse(text, tokenCounter))
-    );
   }
 }

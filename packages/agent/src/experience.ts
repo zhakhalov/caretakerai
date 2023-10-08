@@ -27,7 +27,7 @@ export class Experience implements ExperienceParams {
   }
 
   toString() {
-    return `.:${this.kind}:. ${this.order}: ${this.input}`;
+    return `//${this.kind} ${this.order}// ${this.input}`;
   }
 
   toObject() {
@@ -35,9 +35,8 @@ export class Experience implements ExperienceParams {
   }
 
   static async parse(text: string, counter?: TokenCounter) {
-    const kindRegexp = /^.\:(.+?)\:\./;
-    const orderRegexp = /\b(\d+)\b/;
-    const inputRegexp = /:\s*(.+)/;
+    const kindRegexp = /^\/\/(.+?)\s/; // The first word after leading `//`
+    const orderRegexp = /^\/\/\w+\s(.+?)\/\//;
 
     if (!kindRegexp.test(text)) {
       throw new Error('Cannot parse kind from the given text');
@@ -49,13 +48,9 @@ export class Experience implements ExperienceParams {
       throw new Error('Cannot parse order from the given text');
     }
 
-    const order = parseInt(text.match(orderRegexp)?.[0].trim()!);
+    const order = parseInt(text.match(orderRegexp)?.[1].trim()!);
 
-    if (!inputRegexp.test(text)) {
-      throw new Error('Cannot parse input from the given text');
-    }
-
-    const input = text.match(inputRegexp)?.[1]?.trim()!;
+    const input = text.replace(/^\/\/.+\/\/\s/, '');
     const experience = new Experience({ kind, order, input });
 
     if (counter) {
