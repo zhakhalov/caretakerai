@@ -13,7 +13,7 @@ export abstract class Action {
   abstract execute(input: ActionInput): Promise<string>;
 
   toString() {
-    return `- ${this.kind}: ${this.description}`
+    return `${this.kind}: ${this.description}`
   }
 
   static parse(text: string) {

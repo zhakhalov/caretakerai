@@ -75,7 +75,7 @@ export class Agent implements AgentPrams {
       new StringOutputParser(),
     ]).invoke({
       instruction: this.instruction,
-      actions: this.actions.map(a => a.toString()).join(ACTION_SEP),
+      actions: this.actions.map((a, index) => `${index + 1}. ${a.toString()}`).join(ACTION_SEP),
       example: this.example.map(e => e.toString()).join(`\n${EXPERIENCE_SEP}\n`),
       experience: [...this.experience, experienceTemplate].map(e => e.toString()).join(`\n${EXPERIENCE_SEP}\n`),
     })

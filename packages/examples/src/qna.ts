@@ -62,29 +62,30 @@ async function main() {
       new Say(),
     ],
     instruction: dedent`
-      As an AI language assistant, you are set to assist users by fetching answers to their questions from our knowledge base.
+      As an AI language assistant, you are set to assist users by fetching answers to their questions from our knowledge base using full-text-search interface.
+
       Please remember the following:
-      - You should do multiple searches in case of lach of the informatiaon retrived from the knlowledge base before answering the user question.
-      - The search result may not provide the relevant information
-      - A maximum of seven search attempts are allowed before offering any output to the users.
-      - Your responses should be based solely on the information you retrieved from the knowledge base without using general knowledge.
-      - You can ask additional questions to the user to improve search quality
-      - Note that search results are not visible to the user.
-      - You are strongly prohibited from fabricating answers if the necessary information is missing.
+      1. Base responses solely on available context information.
+      2. Conduct multiple searches in knowledge base when information is unclear or lacking.
+      3. Restructure the search term if results are inadequate.
+      4. Perform a maximum of seven searches before providing user output.
+      5. If the user's query isn't clear enough, ask additional questions.
+      6. Keep in mind that search results aren't visible to the user.
+      7. Refrain from creating answers if necessary information is missing; opt for extra searches.
     `.trim(),
     experience: [
       // new Experience({ kind: ExperienceKind.Observation, order: 0, input: 'The user says: How batch operation is different from classification?' })
-      new Experience({ kind: ExperienceKind.Observation, order: 0, input: 'The user says: I am owning the coffee shop and what my business to be discoverable. what information do you need?' })
+      new Experience({ kind: ExperienceKind.Observation, order: 4, input: 'The user says: What is the difference between batching and classification?' })
     ],
     example: await Agent.parseExperience(dedent`
-      //Observation 0// The user says: What are the differences between Quantum computing and Classical computing in terms of speed and application?
+      //Observation 1// The user says: What are the differences between Quantum computing and Classical computing in terms of speed and application?
       ***
-      //Thought 1// The user wants to understand the speed difference between Quantum computing and Classical computing. To answer this question, I will first need to gather details about the speed of Quantum computing by searching the database. Since this information in itself is complex and vast, I will have to dissect and present the fact in a simplified manner.
+      //Thought 1// Considering the complexity of the user's question about the speed and application differences between Quantum and Classical computing and the lack of specific information in the context, I need to break down the question and search the knowledge base step by step starting with the speed of quantum computing.
       ***
       //Action 1// Search
-      Details about the speed of quantum computing
+      Speed characteristics of quantum computing.
       ***
-      //Observation 1// The search results revealed these pieces of information:
+      //Observation 2// The search results revealed these pieces of information:
       Quantum computers leverage qubits, which exist in many states at once, enabling simultaneous data processing and thus higher computational speed.
       [...]
       Quantum computers can perform complex computations that classical computers cannot, increasing the speed of computing.
@@ -93,12 +94,12 @@ async function main() {
       [...]
       Compared to classical computing, quantum computing is much faster because of its use of quantum mechanical phenomena.
       ***
-      //Thought 2// These search results provide needed information on the speed of quantum computing but no intel on how classic computers work. I need to repeat this process to gather information about the speed of classical computing to make a proper comparison.
+      //Thought 2// Although the search results have provided useful insights about the speed of quantum computing, the context still lacks information about the speed of classical computing. For a comprehensive comparison, I need to search the database for details about the speed of classical computing.
       ***
       //Action 2// Search
-      Details about the speed of classical computing
+      Speed characteristics of classical computing.
       ***
-      //Observation 2// The search results delivered these insights:
+      //Observation 3// The search results delivered these insights:
       Classical computers work with bits that can be either 0 or 1, executing instructions sequentially, which can be slower for complex computations.
       [...]
       Even the most advanced classical supercomputers struggle to perform certain operations, especially when they involve large datasets or intricate calculations.
@@ -107,15 +108,10 @@ async function main() {
       [...]
       While classical computers can solve a wide array of problems, they lack the computational speed of quantum computers when dealing with certain kinds of complex problems.
       ***
-      //Thought 3// Having gathered information about the functioning and speed of both quantum and classical computers, I now have enough data to compose a well-informed answer to the user's question, comparing the two types of computing.
+      //Thought 3// Having the information about the functioning and speed of both quantum and classical computers in the context, I now have enough data to compose a well-informed answer to the user's question, comparing the two types of computing.
       ***
       //Action 3// Say
-      Quantum computers leverage qubits, which exist in many states at once. This allows them to process data simultaneously, resulting in higher computation speeds. They can also handle complex computations that are beyond the reach of classical computers, particularly when dealing with large and complex datasets.
-
-      On the other hand, classical computers work with bits that can only be either 0 or 1. They execute instructions one after the other in a sequence, which can be time-consuming when it comes to complex computations. Even the most advanced classical supercomputers can struggle with particular operations, especially those involving large or intricate calculations.
-
-      Therefore, when it comes to speed and handling complex calculations, quantum computers hold an advantage over classical computers.
-      Do you need information on any other aspects of quantum and classical computing?
+      Quantum computers, using qubits that exist in multiple states simultaneously, outperform classical computers in speed and complexity of calculations. This is due to their ability to process data concurrently, tackling large and intricate computations more effectively. Conversely, classical computers, using bits that are either 0 or 1, carry out computations sequentially, which can be slower and challenging for large or complex computations.
     `)
   });
 
