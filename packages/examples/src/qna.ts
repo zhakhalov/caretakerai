@@ -1,9 +1,9 @@
 import dedent from 'dedent';
-import { OpenAI } from 'langchain/llms/openai';
+import { OpenAI as OpenAILamguageModel } from 'langchain/llms/openai';
 import { Lookup } from '@or-sdk/lookup';
 import inputPrompt from '@inquirer/input';
 import chalk from 'chalk';
-import { Agent, Action, ActionInput, Experience, ExperienceKind } from '@caretaker/agent';
+import { Agent, Action, ActionInput, Activity, ActivityKind, Optimizer } from '@caretaker/agent';
 import dontenv from 'dotenv';
 
 dontenv.config();
@@ -47,13 +47,31 @@ class Say extends Action {
   }
 }
 
+class SimpleOptimizer implements Optimizer {
+  constructor (
+    readonly wordLimit: number
+  ) {}
+
+  async optimize(activities: Activity[]): Promise<Activity[]> {
+    let wordCount = activities.map(act => act.input.split(' ').length).reduce((a, b) => a + b, 0);
+    let optimizedActs = [...activities];
+
+    while (wordCount > this.wordLimit && optimizedActs.length > 0) {
+      const actToRemove = optimizedActs.shift()!;
+      wordCount -= actToRemove.input.split(' ').length;
+    }
+
+    return optimizedActs;
+  }
+}
+
 async function main() {
   const lookup = new Lookup({
     token: process.env.OR_TOKEN!,
     serviceUrl: process.env.LOOKUP_API_URL!,
   });
 
-  const llm = new OpenAI();
+  const llm = new OpenAILamguageModel();
 
   const agent = new Agent({
     llm,
@@ -61,6 +79,7 @@ async function main() {
       new Search(lookup),
       new Say(),
     ],
+    optimizer: new SimpleOptimizer(1000),
     instruction: dedent`
       As an AI language assistant, you are set to assist users by fetching answers to their questions from our knowledge base using full-text-search interface.
 
@@ -73,11 +92,11 @@ async function main() {
       6. Keep in mind that search results aren't visible to the user.
       7. Refrain from creating answers if necessary information is missing; opt for extra searches.
     `.trim(),
-    experience: [
+    activities: [
       // new Experience({ kind: ExperienceKind.Observation, order: 0, input: 'The user says: How batch operation is different from classification?' })
-      new Experience({ kind: ExperienceKind.Observation, order: 4, input: 'The user says: What is the difference between batching and classification?' })
+      new Activity({ kind: ActivityKind.Observation, order: 4, input: 'The user says: What is the difference between batching and classification?' })
     ],
-    example: await Agent.parseExperience(dedent`
+    example: await Agent.parseActivities(dedent`
       //Observation 1// The user says: What are the differences between Quantum computing and Classical computing in terms of speed and application?
       ***
       //Thought 1// Considering the complexity of the user's question about the speed and application differences between Quantum and Classical computing and the lack of specific information in the context, I need to break down the question and search the knowledge base step by step starting with the speed of quantum computing.

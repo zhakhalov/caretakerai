@@ -1,5 +1,5 @@
 export const ACTION_SEP = '\n'
-export const EXPERIENCE_SEP = '***';
+export const ACTIVITY_SEP = '***';
 export const TEMPLATE = `
 ## Instruction
 {instruction}
@@ -13,5 +13,5 @@ You must provide your thoughts on the observations before proceeding to the next
 ## Context:
 {example}
 ***
-{experience}
+{activities}
 `.trim();

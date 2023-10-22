@@ -11,10 +11,13 @@
     "@caretaker/agent": "*",
     "@inquirer/input": "^1.2.13",
     "@or-sdk/lookup": "^1.2.0",
+    "@tensorflow/tfjs": "^4.11.0",
     "chalk": "^5.3.0",
     "dedent": "^1.5.1",
     "dotenv": "^16.3.1",
-    "langchain": "^0.0.151"
+    "langchain": "^0.0.151",
+    "ml-distance": "^4.0.1",
+    "natural": "^6.7.2"
   },
   "devDependencies": {
     "@types/node": "^20.4.1",

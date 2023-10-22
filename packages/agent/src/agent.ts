@@ -3,72 +3,71 @@ import { BasePromptTemplate, PromptTemplate } from 'langchain/prompts';
 import { RunnableSequence } from 'langchain/schema/runnable';
 import { StringOutputParser } from 'langchain/schema/output_parser';
 import { Action } from './action';
-import { TEMPLATE, EXPERIENCE_SEP, ACTION_SEP } from './constants';
-import { Experience, ExperienceKind } from './experience';
-import { TokenCounter } from './types';
+import { TEMPLATE, ACTIVITY_SEP, ACTION_SEP } from './constants';
+import { Activity, ActivityKind } from './activity';
+import { Optimizer } from './types';
 
 interface AgentPrams {
   llm: BaseLanguageModel;
   actions: Action[];
-  experience: Experience[];
-  example: Experience[];
+  activities: Activity[];
+  example: Activity[];
   instruction: string;
+  optimizer: Optimizer;
   template?: BasePromptTemplate;
-  capExperienceAfterTokens?: number;
-  tokenCounter?: TokenCounter;
   stop?: string[]
 }
 
 export class Agent implements AgentPrams {
   llm!: BaseLanguageModel;
   actions!: Action[];
-  experience!: Experience[];
-  example!: Experience[];
+  activities!: Activity[];
+  example!: Activity[];
   instruction!: string;
+  optimizer!: Optimizer;
   template?: BasePromptTemplate;
-  capExperienceAfterTokens?: number;
-  tokenCounter?: TokenCounter;
   stop?: string[]
 
   static defaults = {
     template: PromptTemplate.fromTemplate(TEMPLATE),
-    stop: [`//${ExperienceKind.Observation}`]
+    stop: [`//${ActivityKind.Observation}`]
   }
 
-  static parseExperience(input: string, tokenCounter?: TokenCounter) {
+  static parseActivities(input: string) {
     return Promise.all(input
-      .split(EXPERIENCE_SEP)
+      .split(ACTIVITY_SEP)
       .map(text => text.trim())
       .filter(text => text)
-      .map(text => Experience.parse(text.trim(), tokenCounter))
+      .map(text => Activity.parse(text.trim()))
     );
   }
 
   constructor(params: AgentPrams) {
-    const { actions, experience } = params;
+    const { actions, activities } = params;
 
     if (!actions.length) {
       throw new Error('Actions list must be non empty');
     }
 
-    if (!experience.length) {
-      throw new Error('Experience list must not be empty.');
+    if (!activities.length) {
+      throw new Error('Activity list must not be empty.');
     }
 
-    if (experience.at(-1)?.kind !== ExperienceKind.Observation) {
+    if (activities.at(-1)?.kind !== ActivityKind.Observation) {
       throw new Error('Lastest experience must be of Observation kind');
     }
 
     Object.assign(this, Agent.defaults, params);
   }
 
-  appendExperience(...experience: Experience[]) {
+  appendActivity(...experience: Activity[]) {
     experience.forEach(e => console.log(e.toString()));
 
-    this.experience.push(...experience)
+    this.activities.push(...experience)
   }
 
-  async complete(experienceTemplate: Experience) {
+  async complete(experienceTemplate: Activity) {
+    const activities = await this.optimizer.optimize(this.activities);
     const completion = await RunnableSequence.from([
       this.template!,
       this.llm.bind({ stop: this.stop }), // Do not allow LLMs to generate observataions
@@ -76,31 +75,35 @@ export class Agent implements AgentPrams {
     ]).invoke({
       instruction: this.instruction,
       actions: this.actions.map((a, index) => `${index + 1}. ${a.toString()}`).join(ACTION_SEP),
-      example: this.example.map(e => e.toString()).join(`\n${EXPERIENCE_SEP}\n`),
-      experience: [...this.experience, experienceTemplate].map(e => e.toString()).join(`\n${EXPERIENCE_SEP}\n`),
+      example: this.example.map(e => e.toString()).join(`\n${ACTIVITY_SEP}\n`),
+      activities: [...activities, experienceTemplate].map(e => e.toString()).join(`\n${ACTIVITY_SEP}\n`),
     })
 
-    return Agent.parseExperience(experienceTemplate.toString() + completion.trim(), this.tokenCounter);
+    return Agent.parseActivities(experienceTemplate.toString() + completion.trim());
   }
 
-  async think(latestExperience: Experience) {
-   this.appendExperience(...(await this.complete(new Experience({
-      kind: ExperienceKind.Thought,
-      order: latestExperience.order + 1,
+  async think(latestActivity: Activity) {
+    // TODO: add retries - retry completion if LLM generate incorrect output (wrong format, wrong action etc.)
+
+    this.appendActivity(...(await this.complete(new Activity({
+      kind: ActivityKind.Thought,
+      order: latestActivity.order + 1,
       input: '',
     }))));
   }
 
-  async act(latestExperience: Experience) {
-    this.appendExperience(...(await this.complete(new Experience({
-      kind: ExperienceKind.Action,
-      order: latestExperience.order,
+  async act(latestActivity: Activity) {
+    // TODO: add retries - retry completion if LLM generate incorrect output (wrong format, wrong action etc.)
+
+    this.appendActivity(...(await this.complete(new Activity({
+      kind: ActivityKind.Action,
+      order: latestActivity.order,
       input: '',
     }))));
   }
 
-  async execute(latestExperience: Experience) {
-    const { kind, input } = Action.parse(latestExperience.input);
+  async execute(latestActivity: Activity) {
+    const { kind, input } = Action.parse(latestActivity.input);
     const action = this.actions.find(a => a.kind === kind);
 
     if (!action) {
@@ -109,9 +112,9 @@ export class Agent implements AgentPrams {
 
     const observation = await action.execute({ agent: this, input })
 
-    this.appendExperience(new Experience({
-      kind: ExperienceKind.Observation,
-      order: latestExperience.order,
+    this.appendActivity(new Activity({
+      kind: ActivityKind.Observation,
+      order: latestActivity.order,
       input: observation,
     }));
 
@@ -122,20 +125,20 @@ export class Agent implements AgentPrams {
 
   async invoke() {
     while (true) {
-      const latestExperience = this.experience.at(-1)!;
+      const latestActivity = this.activities.at(-1)!;
 
-      if (latestExperience.kind === ExperienceKind.Observation) {
-        await this.think(latestExperience);
-      } else if (latestExperience.kind === ExperienceKind.Thought) {
-        await this.act(latestExperience);
-      } else if (latestExperience.kind === ExperienceKind.Action) {
-        const result = await this.execute(latestExperience);
+      if (latestActivity.kind === ActivityKind.Observation) {
+        await this.think(latestActivity);
+      } else if (latestActivity.kind === ActivityKind.Thought) {
+        await this.act(latestActivity);
+      } else if (latestActivity.kind === ActivityKind.Action) {
+        const result = await this.execute(latestActivity);
 
         if (result) {
           return result;
         }
       } else {
-        throw new Error(`Experience "${latestExperience.kind}" is not permitted.`);
+        throw new Error(`Activity "${latestActivity.kind}" is not permitted.`);
       }
     }
   }

@@ -20,7 +20,7 @@ export abstract class Action {
     const [kind, ...rest] = text.split('\n')
 
     return {
-      kind,
+      kind: kind.trim(),
       input: rest.join('\n'),
     };
   }

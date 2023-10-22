@@ -1,20 +1,17 @@
 {
-  "name": "@caretakerai/root",
+  "name": "@caretakerai/counter",
   "version": "1.0.0",
   "description": "",
+  "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "ml-distance": "^4.0.1"
+    "@caretakerai/agent": "^1.0.0"
   },
-  "devDependencies": {
-    "@types/node": "^20.4.1",
-    "tsx": "^3.12.7"
-  },
-  "workspaces": [
-    "packages/*"
-  ]
+  "peerDependencies": {
+    "tiktoken": "^1.0.10"
+  }
 }
