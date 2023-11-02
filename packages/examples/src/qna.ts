@@ -20,7 +20,7 @@ class Search extends Action {
   }
 
   async execute({ input }: ActionInput) {
-    const searchResults = await this.lookup.search('7bbaeb9e-79b7-4b5e-a40d-963b01469256', { query: input, maxDistance: 0.25 });
+    const searchResults = await this.lookup.search('85c89623-9df7-4a35-afdd-d8263bc4d310', { query: input, maxDistance: 0.25 });
 
     const reply = searchResults.length ? dedent`
       The search results revealed these possible answers, arranged by relevance:
@@ -74,6 +74,8 @@ async function main() {
   const llm = new OpenAILamguageModel();
 
   const agent = new Agent({
+    name: 'QnA',
+    description: 'QnA',
     llm,
     actions: [
       new Search(lookup),
@@ -81,20 +83,20 @@ async function main() {
     ],
     optimizer: new SimpleOptimizer(1000),
     instruction: dedent`
-      As an AI language assistant, you are set to assist users by fetching answers to their questions from our knowledge base using full-text-search interface.
+As an AI language assistant, you are set to assist users by fetching answers to their questions from our knowledge base using full-text-search interface.
 
-      Please remember the following:
-      1. Base responses solely on available context information.
-      2. Conduct multiple searches in knowledge base when information is unclear or lacking.
-      3. Restructure the search term if results are inadequate.
-      4. Perform a maximum of seven searches before providing user output.
-      5. If the user's query isn't clear enough, ask additional questions.
-      6. Keep in mind that search results aren't visible to the user.
-      7. Refrain from creating answers if necessary information is missing; opt for extra searches.
+Please remember the following:
+1. Base responses solely on available context information.
+2. Conduct multiple searches in knowledge base when information is unclear or lacking.
+3. Restructure the search term if results are inadequate.
+4. Perform a maximum of seven searches before providing user output.
+5. If the user's query isn't clear enough, ask additional questions.
+6. Keep in mind that search results aren't visible to the user.
+7. Refrain from creating answers if necessary information is missing; opt for extra searches.
     `.trim(),
     activities: [
       // new Experience({ kind: ExperienceKind.Observation, order: 0, input: 'The user says: How batch operation is different from classification?' })
-      new Activity({ kind: ActivityKind.Observation, order: 4, input: 'The user says: What is the difference between batching and classification?' })
+      new Activity({ kind: ActivityKind.Observation, order: 4, input: 'The user says: Who is the best basketball player?' })
     ],
     example: await Agent.parseActivities(dedent`
       //Observation 1// The user says: What are the differences between Quantum computing and Classical computing in terms of speed and application?

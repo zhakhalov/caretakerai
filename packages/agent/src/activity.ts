@@ -32,7 +32,7 @@ export class Activity implements ActivityParams {
     return { ...this };
   }
 
-  static async parse(text: string) {
+  static parse(text: string) {
     const kindRegexp = /^\/\/(.+?)\s/; // The first word after leading `//`
     const orderRegexp = /^\/\/\w+\s(.+?)\/\//;
 
@@ -54,7 +54,7 @@ export class Activity implements ActivityParams {
     return activity;
   }
 
-  static async fromObject({ kind, order, input }: Record<string, any>) {
+  static fromObject({ kind, order, input }: Record<string, any>) {
     return new Activity({ kind, order, input });
   }
 }

@@ -8,9 +8,11 @@ import { Activity, ActivityKind } from './activity';
 import { Optimizer } from './types';
 
 interface AgentPrams {
+  name: string;
+  description: string;
   llm: BaseLanguageModel;
   actions: Action[];
-  activities: Activity[];
+  activities?: Activity[];
   example: Activity[];
   instruction: string;
   optimizer: Optimizer;
@@ -19,6 +21,8 @@ interface AgentPrams {
 }
 
 export class Agent implements AgentPrams {
+  name!: string;
+  description!: string;
   llm!: BaseLanguageModel;
   actions!: Action[];
   activities!: Activity[];
@@ -34,30 +38,21 @@ export class Agent implements AgentPrams {
   }
 
   static parseActivities(input: string) {
-    return Promise.all(input
+    return input
       .split(ACTIVITY_SEP)
       .map(text => text.trim())
       .filter(text => text)
-      .map(text => Activity.parse(text.trim()))
-    );
+      .map(text => Activity.parse(text.trim()));
   }
 
   constructor(params: AgentPrams) {
-    const { actions, activities } = params;
+    const { actions, activities = [] } = params;
 
     if (!actions.length) {
       throw new Error('Actions list must be non empty');
     }
 
-    if (!activities.length) {
-      throw new Error('Activity list must not be empty.');
-    }
-
-    if (activities.at(-1)?.kind !== ActivityKind.Observation) {
-      throw new Error('Lastest experience must be of Observation kind');
-    }
-
-    Object.assign(this, Agent.defaults, params);
+    Object.assign(this, Agent.defaults, { ...params, activities });
   }
 
   appendActivity(...experience: Activity[]) {
@@ -70,7 +65,7 @@ export class Agent implements AgentPrams {
     const activities = await this.optimizer.optimize(this.activities);
     const completion = await RunnableSequence.from([
       this.template!,
-      this.llm.bind({ stop: this.stop }), // Do not allow LLMs to generate observataions
+      this.llm.bind({ stop: this.stop }), // Do not allow LLMs to generate observations
       new StringOutputParser(),
     ]).invoke({
       instruction: this.instruction,
@@ -124,6 +119,14 @@ export class Agent implements AgentPrams {
   }
 
   async invoke() {
+    if (!this.activities.length) {
+      throw new Error('Activity list must not be empty.');
+    }
+
+    if (this.activities.at(-1)?.kind !== ActivityKind.Observation) {
+      throw new Error('Lastest experience must be of Observation kind');
+    }
+
     while (true) {
       const latestActivity = this.activities.at(-1)!;
 

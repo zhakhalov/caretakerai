@@ -1,3 +1,4 @@
+import { Activity } from './activity';
 import type { Agent } from './agent';
 
 export interface ActionInput {
