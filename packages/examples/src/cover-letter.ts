@@ -1,7 +1,7 @@
 import inputPrompt from '@inquirer/input';
 import { Activity, ActivityKind } from '@caretaker/agent';
 import dontenv from 'dotenv';
-import { makeCoverLetterWriter } from './agents/cover-letter-writer';
+import { makeCoverLetterWriter } from './collaboration/cover-letter-writer';
 
 dontenv.config();
 

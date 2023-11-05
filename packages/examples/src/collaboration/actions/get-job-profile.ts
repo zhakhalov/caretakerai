@@ -1,6 +1,6 @@
 import dedent from 'dedent';
 import { OpenAI } from 'openai';
-import { Action, ActionInput } from '@caretaker/agent';
+import { Action, ActionInput, Agent } from '@caretaker/agent';
 import { similarity } from 'ml-distance';
 
 const jobProfiles = [
@@ -31,6 +31,19 @@ export class GetJobProfile extends Action {
   readonly exit = false;
   readonly kind = GetJobProfile.name;
   readonly description = 'Use this action to find the job description that matches the request.';
+
+  readonly examples = [
+    {
+      activities: Agent.parseActivities(dedent`
+        //Observation 1// The Agent says: Obtain the job description and requirements for the Senior Software Developer position at XYZ corporation.
+        ***
+        //Thought 1// The Agent has requested the job description and requirements for the Senior Software Developer position at XYZ corporation. I need to search in the job description resource to gather this data.
+        ***
+        //Action 1// GetJobProfile
+        Job description and requirements for the Senior Software Developer position at XYZ corporation.
+      `)
+    }
+  ]
 
   async execute({ input }: ActionInput): Promise<string> {
     const jobProfilesText = jobProfiles.map(({ jobTitle, companyName, jobDescription, requirements }) => `${jobTitle} at ${companyName} - ${jobDescription}. ${requirements.join('; ')}`)

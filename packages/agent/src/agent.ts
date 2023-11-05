@@ -13,7 +13,7 @@ interface AgentPrams {
   llm: BaseLanguageModel;
   actions: Action[];
   activities?: Activity[];
-  example: Activity[];
+  example?: Activity[];
   instruction: string;
   optimizer: Optimizer;
   template?: BasePromptTemplate;
@@ -32,9 +32,11 @@ export class Agent implements AgentPrams {
   template?: BasePromptTemplate;
   stop?: string[]
 
-  static defaults = {
+  static defaults: Partial<AgentPrams> = {
     template: PromptTemplate.fromTemplate(TEMPLATE),
-    stop: [`//${ActivityKind.Observation}`]
+    stop: [`//${ActivityKind.Observation}`],
+    activities: [],
+    example: []
   }
 
   static parseActivities(input: string) {
@@ -46,13 +48,13 @@ export class Agent implements AgentPrams {
   }
 
   constructor(params: AgentPrams) {
-    const { actions, activities = [] } = params;
+    const { actions } = params;
 
     if (!actions.length) {
       throw new Error('Actions list must be non empty');
     }
 
-    Object.assign(this, Agent.defaults, { ...params, activities });
+    Object.assign(this, Agent.defaults, params);
   }
 
   appendActivity(...experience: Activity[]) {
@@ -72,6 +74,14 @@ export class Agent implements AgentPrams {
       actions: this.actions.map((a, index) => `${index + 1}. ${a.toString()}`).join(ACTION_SEP),
       example: this.example.map(e => e.toString()).join(`\n${ACTIVITY_SEP}\n`),
       activities: [...activities, experienceTemplate].map(e => e.toString()).join(`\n${ACTIVITY_SEP}\n`),
+    }, {
+      callbacks: [
+        {
+          handleLLMStart: (llm, prompts) => {
+            // console.log(prompts);
+          }
+        }
+      ]
     })
 
     return Agent.parseActivities(experienceTemplate.toString() + completion.trim());
@@ -82,7 +92,7 @@ export class Agent implements AgentPrams {
 
     this.appendActivity(...(await this.complete(new Activity({
       kind: ActivityKind.Thought,
-      order: latestActivity.order + 1,
+      order: latestActivity.order,
       input: '',
     }))));
   }
@@ -109,7 +119,7 @@ export class Agent implements AgentPrams {
 
     this.appendActivity(new Activity({
       kind: ActivityKind.Observation,
-      order: latestActivity.order,
+      order: latestActivity.order + 1,
       input: observation,
     }));
 
