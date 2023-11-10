@@ -11,17 +11,14 @@ export class SearchAgent extends Action {
   readonly examples = [
     {
       activities: Agent.parseActivities(dedent`
-        //Observation 1// The User says: I need help planning a trip to Italy.
-        ***
-        //Thought 1// The user requests assistance in planning a trip, but my knowledge about travel details and accommodations in Italy is limited. To provide the best support, I need help from another AI that specializes in travel planning.
-        ***
-        //Action 1// SearchAgent
-        AI agent with expertise in trip planning and knowledge about Italy.
-        ***
-        //Observation 2// The search results revealed these pieces of information:
-        TravelPlannerAI - specializes in creating detailed itineraries including accommodations, transportation, and local attractions.
-        [...]
-        ItalyTravelGuideAI - provides detailed information about traveling in Italy, including local customs, places to visit, etc.
+//Observation 1// The User says: I need help planning a trip to Italy.
+//Thought 1// The user requests assistance in planning a trip, but my knowledge about travel details and accommodations in Italy is limited. To provide the best support, I need help from another AI that specializes in travel planning.
+//Action 1// SearchAgent
+AI agent with expertise in trip planning and knowledge about Italy.
+//Observation 2// The search results revealed these pieces of information:
+TravelPlannerAI(uuid: e121cae0-2005-4ea6-a6a7-e3af6ae00fdf) - specializes in creating detailed itineraries including accommodations, transportation, and local attractions.
+[...]
+ItalyTravelGuideAI(uuid: c7ee8f0f-8c9e-4399-97cc-a0c1eb2b2396) - provides detailed information about traveling in Italy, including local customs, places to visit, etc.
       `)
     }
   ];

@@ -36,9 +36,7 @@ export class GetJobProfile extends Action {
     {
       activities: Agent.parseActivities(dedent`
         //Observation 1// The Agent says: Obtain the job description and requirements for the Senior Software Developer position at XYZ corporation.
-        ***
         //Thought 1// The Agent has requested the job description and requirements for the Senior Software Developer position at XYZ corporation. I need to search in the job description resource to gather this data.
-        ***
         //Action 1// GetJobProfile
         Job description and requirements for the Senior Software Developer position at XYZ corporation.
       `)

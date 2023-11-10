@@ -41,9 +41,9 @@ export class Agent implements AgentPrams {
 
   static parseActivities(input: string) {
     return input
-      .split(ACTIVITY_SEP)
-      .map(text => text.trim())
+      .split('\n//')
       .filter(text => text)
+      .map(text => `//${text.replace(/^\/\//, '').trim()}`) // Fix leading slashes
       .map(text => Activity.parse(text.trim()));
   }
 
@@ -72,8 +72,8 @@ export class Agent implements AgentPrams {
     ]).invoke({
       instruction: this.instruction,
       actions: this.actions.map((a, index) => `${index + 1}. ${a.toString()}`).join(ACTION_SEP),
-      example: this.example.map(e => e.toString()).join(`\n${ACTIVITY_SEP}\n`),
-      activities: [...activities, experienceTemplate].map(e => e.toString()).join(`\n${ACTIVITY_SEP}\n`),
+      example: this.example.map(e => e.toString()).join(`\n`),
+      activities: [...activities, experienceTemplate].map(e => e.toString()).join(`\n`),
     }, {
       callbacks: [
         {

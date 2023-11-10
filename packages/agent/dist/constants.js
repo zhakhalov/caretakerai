@@ -1,6 +1,9 @@
-export const ACTION_SEP = '\n\n'
-export const ACTIVITY_SEP = '***';
-export const TEMPLATE = `
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.TEMPLATE = exports.ACTIVITY_SEP = exports.ACTION_SEP = void 0;
+exports.ACTION_SEP = '\n\n';
+exports.ACTIVITY_SEP = '***';
+exports.TEMPLATE = `
 ## Instruction
 {instruction}
 
@@ -18,3 +21,4 @@ The permissible actions I may take are listed below:
 {example}
 {activities}
 `.trim();
+//# sourceMappingURL=constants.js.map

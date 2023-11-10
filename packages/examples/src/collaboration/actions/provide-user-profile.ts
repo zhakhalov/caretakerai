@@ -15,11 +15,8 @@ export class ProvideUserProfile extends Action {
       Frameworks: Django, React
       Programming Language: Python
       Can you confirm if these details are correct?
-      ***
       //Observation 2// The User says: Yes, that's correct.
-      ***
       //Thought 2// The user confirmed the accuracy of the updated skills data. I should now provide this information, along with the other user details.
-      ***
       //Action 2// ProvideUserProfile
       {
         "name": "John Doe",

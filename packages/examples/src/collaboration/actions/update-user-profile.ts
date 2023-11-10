@@ -11,15 +11,12 @@ export class UpdateUserProfile extends Action {
     {
       activities: Agent.parseActivities(dedent`
         //Observation 1// The User says: Update my profile with my new job role as Senior Software Developer at XYZ Corporation.
-        ***
         //Thought 1// The user wants to update their job role in their profile. I can use the UpdateUserProfile action to carry out this update.
-        ***
         //Action 1// UpdateUserProfile
         {
           "current_job_role": "Senior Software Developer",
           "current_company": "XYZ Corporation"
         }
-        ***
         //Observation 2// The user's profile has been updated.
       `)
     }

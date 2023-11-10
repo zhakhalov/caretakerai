@@ -10,12 +10,9 @@ export class GetUserProfile extends Action {
     {
       activities: Agent.parseActivities(dedent`
         //Observation 1// The CoverLetterWriter Agent says:  Gather the user's qualifications, experience, and skills.
-        ***
         //Thought 1// The CoverLetterWriter Agent has asked for details about the user's qualifications, experience, and skills. I need to search in the JSON file to gather this data.
-        ***
         //Action 1// GetUserProfile
         User’s qualifications, experience, and skills in JSON data file.
-        ***
         //Observation 2// The search in the JSON data file provided these pieces of information:
         {
           "name": "John Doe",

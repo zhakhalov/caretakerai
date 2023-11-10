@@ -12,12 +12,10 @@ export class Say extends Action {
     {
       activities: Agent.parseActivities(dedent`
         //Observation 1// The user says: tell me a joke
-        ***
         //Thought 1// The user wants to hear a joke, possibly to lighten the mood or for entertainment. I need to respond with a light-hearted and appropriate joke.
-        ***
         //Action 1// Say
         Sure, here's one for you: Why don't scientists trust atoms? Because they make up everything!
-      `)
+      `.trim())
     }
   ];
 

@@ -11,9 +11,7 @@ export class SendEmail extends Action {
     {
       activities: Agent.parseActivities(dedent`
         //Observation 1// The User says: Can you draft an email for the hiring manager regarding my application update?
-        ***
         //Thought 1// User requires an email to be sent to the hiring manager about an update in their job application. I can draft the email and use the SendEmail action to send it.
-        ***
         //Action 1// SendEmail
         {
           "body": "Attached is the updated document for my application. Thank you for considering my application.",
