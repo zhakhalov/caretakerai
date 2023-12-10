@@ -1,3 +1,5 @@
+import { Element, js2xml, xml2js } from 'xml-js';
+
 export enum ActivityKind {
   Observation = 'Observation',
   Thought = 'Thought',
@@ -6,55 +8,50 @@ export enum ActivityKind {
 
 export type ActivityParams = {
   kind: ActivityKind;
-  order: number;
   input: string;
+  attributes?: Record<string, string>;
   tokens?: number;
 }
 
 export class Activity implements ActivityParams {
   kind!: ActivityKind;
-  order!: number;
+  attributes?: Record<string, string>;
   input!: string;
-  tokens?: number;
-
-  static readonly defaults: Partial<ActivityParams> = {
-  }
 
   constructor(params: ActivityParams) {
     Object.assign(this, params);
   }
 
-  toString() {
-    return `//${this.kind} ${this.order}// ${this.input}`;
+  prompt() {
+    return js2xml(
+      { [this.kind]: { _attributes: this.attributes ?? {}, _text: `\n${this.input}\n`, } }, 
+      { compact: true },
+    )
+      .replaceAll('&lt;', '<')
+      .replaceAll('&gt;', '>');
   }
 
   toObject() {
     return { ...this };
   }
 
-  static parse(text: string) {
-    const kindRegexp = /^\/\/(.+?)\s/; // The first word after leading `//`
-    const orderRegexp = /^\/\/\w+\s(.+?)\/\//;
-
-    if (!kindRegexp.test(text)) {
-      throw new Error('Cannot parse kind from the given text');
-    }
-
-    const kind = text.match(kindRegexp)?.[1].trim()! as ActivityKind;
-
-    if (!orderRegexp.test(text)) {
-      throw new Error('Cannot parse order from the given text');
-    }
-
-    const order = parseInt(text.match(orderRegexp)?.[1].trim()!);
-
-    const input = text.replace(/^\/\/.+\/\/\s/, '');
-    const activity = new Activity({ kind, order, input });
-
-    return activity;
+  static fromObject({ kind, attributes, input }: Record<string, any>) {
+    return new Activity({ kind, attributes, input });
   }
 
-  static fromObject({ kind, order, input }: Record<string, any>) {
-    return new Activity({ kind, order, input });
+  static parse(text: string) {
+    const { elements: [root] } = xml2js(`<root>${text}</root>`, { trim: true } );
+    
+    return root.elements.map(({ name, attributes, elements }: Element) => {
+      const input = js2xml({ elements })
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>');
+
+      return Activity.fromObject({
+        kind: name,
+        input: input,
+        attributes: attributes,
+      });
+    })
   }
 }

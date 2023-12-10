@@ -11,6 +11,7 @@ import { makeJobProfileDataExtractor } from './job-profile-data-extractor';
 
 export const makeCoverLetterWriter = () => {
   const llm = new OpenAI({
+    modelName: 'gpt-3.5-turbo',
     maxTokens: 1000,
   });
 
@@ -29,7 +30,7 @@ export const makeCoverLetterWriter = () => {
       new SearchAgent(subordinates),
       new Collaborate(subordinates),
     ],
-    optimizer: new SimpleOptimizer(6000),
+    optimizer: new SimpleOptimizer(1000),
     instruction: dedent`
       As an CoverLetterWriterAI assistant,
       I want to guide users through the creation of their cover letters,

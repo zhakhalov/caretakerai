@@ -11,6 +11,7 @@ export const makeJobProfileDataExtractor = () => {
     name: 'JobProfileDataExtractorAI',
     description: 'specializes in extracting job descriptions and their requirements.',
     llm: new OpenAI({
+      modelName: 'gpt-3.5-turbo-instruct',
       maxTokens: 1000,
     }),
     actions: [

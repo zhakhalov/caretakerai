@@ -9,30 +9,30 @@ export class GetUserProfile extends Action {
   readonly examples = [
     {
       activities: Agent.parseActivities(dedent`
-        //Observation 1// The CoverLetterWriter Agent says:  Gather the user's qualifications, experience, and skills.
-        //Thought 1// The CoverLetterWriter Agent has asked for details about the user's qualifications, experience, and skills. I need to search in the JSON file to gather this data.
-        //Action 1// GetUserProfile
-        User’s qualifications, experience, and skills in JSON data file.
-        //Observation 2// The search in the JSON data file provided these pieces of information:
-        {
-          "name": "John Doe",
-          "qualifications": ["Bachelor's Degree in Computer Science", "Master's Degree in Software Engineering"],
-          "skills": [],
-          "experience": [
-            {
-              "company": "Tech Corp",
-              "position": "Software Engineer",
-              "duration": "2 years",
-              "description": "Developed software solutions and worked on machine learning algorithms"
-            },
-            {
-              "company": "Data Ltd",
-              "position": "Data Analyst",
-              "duration": "1.5 years",
-              "description": "Analyzed large data sets and developed data-driven solutions"
-            }
-          ]
-        }
+//Observation 1// The CoverLetterWriter Agent says:  Gather the user's qualifications, experience, and skills.
+//Thought 1// The CoverLetterWriter Agent has asked for details about the user's qualifications, experience, and skills. I need to search in the JSON file to gather this data.
+//Action 1// GetUserProfile
+User’s qualifications, experience, and skills in JSON data file.
+//Observation 2// The search in the JSON data file provided these pieces of information:
+{
+  "name": "John Doe",
+  "qualifications": ["Bachelor's Degree in Computer Science", "Master's Degree in Software Engineering"],
+  "skills": [],
+  "experience": [
+    {
+      "company": "Tech Corp",
+      "position": "Software Engineer",
+      "duration": "2 years",
+      "description": "Developed software solutions and worked on machine learning algorithms"
+    },
+    {
+      "company": "Data Ltd",
+      "position": "Data Analyst",
+      "duration": "1.5 years",
+      "description": "Analyzed large data sets and developed data-driven solutions"
+    }
+  ]
+}
       `)
     }
   ]
@@ -51,3 +51,4 @@ export class GetUserProfile extends Action {
   }
 }
 
+  

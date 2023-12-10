@@ -12,10 +12,8 @@ class Action {
             .reduce((acc, { description, activities }) => (0, dedent_1.default) `
         ${acc}
 
-        ${description}
-        \`\`\`
-        ${activities.map(a => a.toString()).join(`\n${constants_1.ACTIVITY_SEP}\n`)}
-        \`\`\`
+        ${description !== null && description !== void 0 ? description : ''}
+        ${activities.map(a => a.toString()).join(constants_1.ACTIVITY_SEP)}
       `.trim(), '');
         return (0, dedent_1.default) `
       ### ${this.kind}

@@ -3,3 +3,4 @@
 replit.nix
 *.env
 tsconfig.tsbuildinfo
+cache

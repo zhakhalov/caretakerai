@@ -1,23 +1,21 @@
 export declare enum ActivityKind {
-    Observation = "Observation",
-    Thought = "Thought",
-    Action = "Action"
+    Observation = "observation",
+    Thought = "thought",
+    Action = "action"
 }
 export type ActivityParams = {
     kind: ActivityKind;
-    order: number;
     input: string;
+    attributes?: Record<string, string>;
     tokens?: number;
 };
 export declare class Activity implements ActivityParams {
     kind: ActivityKind;
-    order: number;
+    attributes?: Record<string, string>;
     input: string;
-    tokens?: number;
     static readonly defaults: Partial<ActivityParams>;
     constructor(params: ActivityParams);
     toString(): string;
     toObject(): this;
-    static parse(text: string): Activity;
-    static fromObject({ kind, order, input }: Record<string, any>): Activity;
+    static fromObject({ kind, attributes, input }: Record<string, any>): Activity;
 }

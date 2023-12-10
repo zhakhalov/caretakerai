@@ -19,6 +19,7 @@ export const makeUserProfileDataExtractor = () => {
     description: 'specializes in extracting information from user profiles and their professional experience.',
     llm: new OpenAI({
       maxTokens: 1000,
+      modelName: 'gpt-3.5-turbo-instruct',
     }),
     actions: [
       new Say(),

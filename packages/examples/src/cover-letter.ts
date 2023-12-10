@@ -7,12 +7,7 @@ dontenv.config();
 
 async function main() {
   const agent = makeCoverLetterWriter()
-
-  const reply = await inputPrompt({
-    message: 'Human:'
-  });
-
-  agent.activities.push(new Activity({ kind: ActivityKind.Observation, order: 100, input: `The user says: ${reply}` }))
+  agent.activities.push(new Activity({ kind: ActivityKind.Observation, input: 'The user says: How can you help me?' }))
   const answer = await agent.invoke();
 
   console.log(answer);
