@@ -1,10 +1,9 @@
 import dedent from 'dedent';
-import { FewShotPromptTemplate, PipelinePromptTemplate, PromptTemplate } from 'langchain/prompts';
+import { PromptTemplate } from 'langchain/prompts';
 import type { Agent } from './agent';
 import { type JSONSchema, compile } from 'json-schema-to-typescript';
-import { ActivityKind, Activity } from './activity';
+import { Activity } from './activity';
 import { ACTIVITY_SEP } from './constants';
-import { join } from 'path';
 
 const ACTION_TEMPLATE = (`
 \`\`\`ts

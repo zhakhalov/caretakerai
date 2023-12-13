@@ -9,21 +9,19 @@
   ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc"
+    "build": "rimraf dist && tsc"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "debug": "^4.3.4",
-    "json-schema-to-jsdoc": "^1.1.0",
-    "json-schema-to-ts": "^2.9.2",
     "json-schema-to-typescript": "^13.1.1",
-    "json-schema-typed": "^8.0.1",
     "langchain": "^0.0.191",
     "xml-js": "^1.6.11"
   },
   "devDependencies": {
     "@types/node": "^20.4.1",
+    "rimraf": "^5.0.5",
     "tsx": "^3.12.7",
     "typescript": "^5.2.2"
   }

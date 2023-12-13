@@ -8,29 +8,6 @@ import { Activity, ActivityKind } from './activity';
 import { Optimizer } from './types';
 import { BaseLLM } from 'langchain/dist/llms/base';
 
-export const TEMPLATE = `
-# Objective
-{objective}
-
-# Actions
-The permissible actions I may take are listed below:
-{actions}
-
-
-# Instructions
-Continue the History with a thought followed by an action and wait for new observation.
-**Example**
-{example}
-
-# Constraints
-{constraints}
-
-# History:
-{history}
-{footer}
-`.trim();
-
-
 interface AgentPrams {
   name: string;
   description: string;
@@ -61,23 +38,40 @@ export class Agent implements AgentPrams {
   stop?: string[]
 
   static defaults: Partial<AgentPrams> = {
-    template: PromptTemplate.fromTemplate(TEMPLATE),
+    template: PromptTemplate.fromTemplate(dedent`
+      # Objective
+      {objective}
+
+      # Constraints
+      {constraints}
+
+      # Actions
+      The only permissible actions you may take are listed below:
+      {actions}
+
+      **Continue the History with the following format in your response:**
+      {example}
+
+      # History:
+      {history}
+      {suffix}
+    `.trim()),
     stop: [`<${ActivityKind.Observation}>`],
     objective: 'You are helpful assistant.',
     examples: [
       new Activity({
         kind: ActivityKind.Observation,
-        input: 'The result of previous action',
+        input: 'The result of previously taken action',
       }),
       new Activity({
         kind: ActivityKind.Thought,
-        input: '<!-- Your thoughts here... -->',
+        input: 'You must always think before taking the action',
       }),
       new Activity({
         kind: ActivityKind.Action,
-        attributes: { kind: '<one of listed in Actions section>' },
+        attributes: { kind: 'the action kind to take, should be one of listed in Actions section' },
         input: dedent`
-          <!-- The action params in JSON format. e.g -->
+          <!-- The action input as valid JSON e.g. -->
           {
             "message": "hello!!"
           }
@@ -131,11 +125,11 @@ export class Agent implements AgentPrams {
 
     // TODO: add retries and validations
 
-    const completion = await RunnableSequence.from([
+    const stream = await RunnableSequence.from([
       template,
       this.llm.bind({ stop: this.stop }), // Do not allow LLMs to generate observations
       new StringOutputParser(),
-    ]).invoke(params ?? {}, {
+    ]).stream(params ?? {}, {
       callbacks: [
         {
           handleLLMStart: (llm, prompts) => {
@@ -143,7 +137,13 @@ export class Agent implements AgentPrams {
           }
         }
       ]
-    })
+    });
+
+    let completion = '';
+
+    for await (const token of stream) {
+      completion += token;
+    }
 
     return Activity.parse(completion.trim());
   }
@@ -181,9 +181,9 @@ export class Agent implements AgentPrams {
       const activity = this.history.at(-1)!;
 
       if (activity.kind === ActivityKind.Observation) {
-        this.addActivities(...(await this.prompt({ footer: '<!-- Provide thought and action here -->', ...input })));
+        this.addActivities(...(await this.prompt({ suffix: '<!-- Provide thought and action here -->', ...input })));
       } else if (activity.kind === ActivityKind.Thought) {
-        this.addActivities(...(await this.prompt({ footer: '<!-- Provide action here -->', ...input })));
+        this.addActivities(...(await this.prompt({ suffix: '<!-- Provide action here -->', ...input })));
       } else if (activity.kind === ActivityKind.Action) {
         const result = await this.execute(activity);
 
