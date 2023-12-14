@@ -47,7 +47,7 @@ Can you confirm if these details are correct?
     super();
   }
 
-  async execute({ input }: ActionInput): Promise<string> {
+  async call({ input }: ActionInput): Promise<string> {
     return input;
   }
 }

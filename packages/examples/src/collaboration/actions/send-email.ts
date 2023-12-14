@@ -25,7 +25,7 @@ export class SendEmail extends Action {
     }
   ];
 
-  async execute({ input }: ActionInput) {
+  async call({ input }: ActionInput) {
     console.log(input);
 
     return 'done';

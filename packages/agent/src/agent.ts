@@ -35,7 +35,6 @@ export class Agent implements AgentPrams {
   objective!: string;
   optimizer!: Optimizer;
   template?: BasePromptTemplate;
-  stop?: string[]
 
   static defaults: Partial<AgentPrams> = {
     template: PromptTemplate.fromTemplate(dedent`
@@ -50,13 +49,12 @@ export class Agent implements AgentPrams {
       {actions}
 
       **Continue the History with the following format in your response:**
-      {example}
+      {examples}
 
       # History:
       {history}
       {suffix}
     `.trim()),
-    stop: [`<${ActivityKind.Observation}>`],
     objective: 'You are helpful assistant.',
     examples: [
       new Activity({
@@ -101,35 +99,39 @@ export class Agent implements AgentPrams {
   }
 
   async prompt(params?: Record<string, string>) {
-    const activities = await this.optimizer.optimize(this.history);
-
     const actions = async () => {
-      const actionsStrings = await Promise.all(this.actions.map(a => a.prompt()));
+      const actionsStrings = await Promise.all(this.actions.map(a => a._prompt()));
       return actionsStrings.join(ACTION_SEP);
     };
 
     const constraints = () => this.constrains.map((c, i) => `${i + 1}. ${c}`).join('\n');
 
     const history = async () => {
-      const historyStrings = this.history.map(h => h.prompt()).join(ACTIVITY_SEP);
+      const history = await this.optimizer.optimize(this.history);
+      const historyStrings = history.map(h => h.prompt()).join(ACTIVITY_SEP);
       return historyStrings;
     };
 
+    const examples = async () => {
+      const examplesStrings = this.examples.map(h => h.prompt()).join(ACTIVITY_SEP);
+      return examplesStrings;
+    };
 
     const template = await this.template.partial({
       objective: this.objective,
       actions,
       constraints,
-      history
+      history,
+      examples,
     })
 
     // TODO: add retries and validations
 
-    const stream = await RunnableSequence.from([
+    const completion = await RunnableSequence.from([
       template,
-      this.llm.bind({ stop: this.stop }), // Do not allow LLMs to generate observations
+      this.llm.bind({ stop: [`<${ActivityKind.Observation}>`] }), // Do not allow LLMs to generate observations
       new StringOutputParser(),
-    ]).stream(params ?? {}, {
+    ]).invoke(params ?? {}, {
       callbacks: [
         {
           handleLLMStart: (llm, prompts) => {
@@ -138,12 +140,6 @@ export class Agent implements AgentPrams {
         }
       ]
     });
-
-    let completion = '';
-
-    for await (const token of stream) {
-      completion += token;
-    }
 
     return Activity.parse(completion.trim());
   }
@@ -156,7 +152,7 @@ export class Agent implements AgentPrams {
       throw new Error(`Action "${kind}" is not permitted.`);
     }
 
-    const observation = await action.execute({ agent: this, input })
+    const observation = await action._call(input, this);
 
     this.addActivities(new Activity({
       kind: ActivityKind.Observation,

@@ -29,7 +29,7 @@ ItalyTravelGuideAI - provides detailed information about traveling in Italy, inc
     super();
   }
 
-  async execute({ input }: ActionInput) {
+  async call({ input }: ActionInput) {
     const { data } = await new OpenAI().embeddings.create({
       model: 'text-embedding-ada-002',
       input: [input, ...this.agents.map(({ name, description }) => `${name} - ${description}`)]

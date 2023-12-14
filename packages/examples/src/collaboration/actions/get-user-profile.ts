@@ -43,7 +43,7 @@ User’s qualifications, experience, and skills in JSON data file.
     super();
   }
 
-  async execute({ input }: ActionInput): Promise<string> {
+  async call({ input }: ActionInput): Promise<string> {
     return dedent`
       The search in the JSON data file provided these pieces of information:
       ${JSON.stringify(this.userProfile, null, 2)}
@@ -51,4 +51,3 @@ User’s qualifications, experience, and skills in JSON data file.
   }
 }
 
-  

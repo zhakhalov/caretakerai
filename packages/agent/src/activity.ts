@@ -24,7 +24,7 @@ export class Activity implements ActivityParams {
 
   prompt() {
     return js2xml(
-      { [this.kind]: { _attributes: this.attributes ?? {}, _text: `\n${this.input}\n`, } }, 
+      { [this.kind]: { _attributes: this.attributes ?? {}, _text: `\n${this.input}\n`, } },
       { compact: true },
     )
       .replaceAll('&lt;', '<')
@@ -41,7 +41,7 @@ export class Activity implements ActivityParams {
 
   static parse(text: string) {
     const { elements: [root] } = xml2js(`<root>${text}</root>`, { trim: true } );
-    
+
     return root.elements.map(({ name, attributes, elements }: Element) => {
       const input = js2xml({ elements })
         .replaceAll('&lt;', '<')

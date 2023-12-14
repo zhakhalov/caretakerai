@@ -43,7 +43,7 @@ export class GetJobProfile extends Action {
     }
   ]
 
-  async execute({ input }: ActionInput): Promise<string> {
+  async call({ input }: ActionInput): Promise<string> {
     const jobProfilesText = jobProfiles.map(({ jobTitle, companyName, jobDescription, requirements }) => `${jobTitle} at ${companyName} - ${jobDescription}. ${requirements.join('; ')}`)
 
     const { data } = await new OpenAI().embeddings.create({

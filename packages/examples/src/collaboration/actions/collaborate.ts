@@ -27,7 +27,7 @@ export class Collaborate extends Action {
     super();
   }
 
-  async execute({ input, agent }: ActionInput): Promise<string> {
+  async call({ input, agent }: ActionInput): Promise<string> {
     const [agentName, ...agentInput] = input.split('\n');
     const subordinate = this.agents.find(({ name }) => name == agentName)!;
     const activities: Activity[] = JSON.parse(JSON.stringify(agent.activities)).map((o: Object) => Activity.fromObject(o));

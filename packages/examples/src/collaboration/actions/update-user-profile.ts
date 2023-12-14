@@ -28,7 +28,7 @@ export class UpdateUserProfile extends Action {
     super();
   }
 
-  async execute({ input }: ActionInput) {
+  async call({ input }: ActionInput) {
     Object.assign(this.userProfile, JSON.parse(input));
     return `The user's profile has been updated`;
   }

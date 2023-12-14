@@ -19,7 +19,7 @@ class Search extends Action {
     super();
   }
 
-  async execute({ input }: ActionInput) {
+  async call({ input }: ActionInput) {
     const searchResults = await this.lookup.search('85c89623-9df7-4a35-afdd-d8263bc4d310', { query: input, maxDistance: 0.25 });
 
     const reply = searchResults.length ? dedent`
@@ -36,7 +36,7 @@ class Say extends Action {
   readonly kind = 'Say';
   readonly description = 'Use this function to relay information to the user.';
 
-  async execute({ input }: ActionInput) {
+  async call({ input }: ActionInput) {
     console.log(`${chalk.bold('AI:')} ${input}`);
 
     const reply = await inputPrompt({

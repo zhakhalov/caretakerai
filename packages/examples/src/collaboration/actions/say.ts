@@ -11,14 +11,14 @@ export class Say extends Action {
   readonly examples = [
     {
       activities: Agent.parseActivities(dedent`
-        <observation>The user says: tell me a joke</observation> 
+        <observation>The user says: tell me a joke</observation>
         <thought>The user wants to hear a joke, possibly to lighten the mood or for entertainment. I need to respond with a light-hearted and appropriate joke.</thought>
         <action kind="Say">Sure, here's one for you: Why don't scientists trust atoms? Because they make up everything!</action>
       `.trim())
     }
   ];
 
-  async execute({ input, agent }: ActionInput) {
+  async call({ input, agent }: ActionInput) {
     console.log(`${chalk.bold(`${agent.name}:`)} ${input}`);
 
     const reply = await inputPrompt({

@@ -44,7 +44,7 @@ export class ProvideJobProfile extends Action {
     }
   ]
 
-  async execute({ input }: ActionInput): Promise<string> {
+  async call({ input }: ActionInput): Promise<string> {
     return input;
   }
 }

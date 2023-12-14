@@ -27,7 +27,7 @@ export class Sum extends Action {
     }
   ];
 
-  async execute({ input }: ActionInput) {
+  async call({ input }: ActionInput) {
     try {
         const numbers: number[] = JSON.parse(input);
         return numbers.reduce((acc, n) => acc + n, 0).toString();
