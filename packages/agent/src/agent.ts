@@ -93,7 +93,7 @@ export class Agent implements AgentPrams {
   }
 
   addActivities(...experience: Activity[]) {
-    experience.forEach(e => console.log(e.toString()));
+    experience.forEach(e => console.log(e));
 
     this.history.push(...experience)
   }
@@ -135,7 +135,7 @@ export class Agent implements AgentPrams {
       callbacks: [
         {
           handleLLMStart: (llm, prompts) => {
-            console.log(prompts);
+            // console.log(prompts);
           }
         }
       ]

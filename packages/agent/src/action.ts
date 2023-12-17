@@ -18,9 +18,7 @@ const ajv = ajvErrorsPlugin(
 const ACTION_TEMPLATE = (`
 \`\`\`ts
 {params}
-
 {result}
-
 /**
 {description}
  * @kind {kind}
@@ -90,9 +88,10 @@ export abstract class Action<P = any, R = any> {
     });
   }
 
-  _call(input: string, agent: Agent) {
+  async _call(input: string, agent: Agent) {
     const params = JSON.parse(input);
     ajv.compile(this.params)(params);
-    return this.call({ params, agent });
+    const result = await this.call({ params, agent });
+    return JSON.stringify(result);
   }
 }

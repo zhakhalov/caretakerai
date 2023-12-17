@@ -3,6 +3,10 @@ import { config } from 'dotenv';
 import { Activity, ActivityKind, Agent, Optimizer } from '@caretaker/agent';
 import { OpenAI } from 'langchain/llms/openai';
 import { Say } from './actions/say';
+import { Sum } from './actions/sum';
+import { Multiply } from './actions/multiply';
+import { Subtract } from './actions/subtract';
+import { Divide } from './actions/divide';
 
 config();
 
@@ -37,6 +41,10 @@ const main = async () => {
     llm,
     actions: [
       new Say(),
+      new Sum(),
+      new Multiply(),
+      new Subtract(),
+      new Divide(),
     ],
     history: [
       new Activity({ kind: ActivityKind.Observation, input: 'The user says: How can you help me?' })

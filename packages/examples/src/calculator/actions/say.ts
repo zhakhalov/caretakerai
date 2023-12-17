@@ -2,22 +2,24 @@ import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import chalk from 'chalk';
 import inputPrompt from '@inquirer/input';
-import { Action, ActionInput, Agent } from '@caretaker/agent';
+import { Action, ActionInput } from '@caretaker/agent';
 import { JSONSchema } from 'json-schema-to-typescript';
 
 const SayParamsSchema = z.object({
   message: z.string().describe('message to say to the user'),
-});
-
+}).describe('Parameters for Say action');
 type SayParams = z.infer<typeof SayParamsSchema>;
+const SayParamsJsonSchema = zodToJsonSchema(SayParamsSchema, 'SayParamsSchema')
+  .definitions!.SayParamsSchema as JSONSchema;
 
 const SayResultSchema = z.string().describe('the users reply');
-
 type SayResult = z.infer<typeof SayResultSchema>;
+const SayResultJsonSchema = zodToJsonSchema(SayResultSchema, 'SayResultSchema')
+  .definitions!.SayResultSchema as JSONSchema;
 
 export class Say extends Action<SayParams, SayResult> {
-  readonly params: JSONSchema = zodToJsonSchema(SayParamsSchema, 'SayParamsSchema').definitions!.SayParamsSchema as JSONSchema;
-  readonly result: JSONSchema = zodToJsonSchema(SayResultSchema, 'SayResultSchema').definitions!.SayResultSchema as JSONSchema;
+  readonly params = SayParamsJsonSchema;
+  readonly result = SayResultJsonSchema;
   readonly exit = false;
   readonly kind = Say.name;
   readonly description = 'Use this function to relay information to the user.';
