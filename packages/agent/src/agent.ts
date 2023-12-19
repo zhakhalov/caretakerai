@@ -1,4 +1,5 @@
 import dedent from 'dedent';
+import { Logger, createLogger, transports } from 'winston';
 import { BasePromptTemplate, PromptTemplate } from 'langchain/prompts';
 import { RunnableSequence } from 'langchain/schema/runnable';
 import { StringOutputParser } from 'langchain/schema/output_parser';
@@ -24,6 +25,7 @@ interface AgentPrams {
   optimizer: Optimizer;
   template?: BasePromptTemplate;
   stop?: string[]
+  logger?: Logger;
 }
 
 export class Agent implements AgentPrams {
@@ -40,6 +42,7 @@ export class Agent implements AgentPrams {
   maxIterations!: number;
   maxRetries!: number;
   optimizer!: Optimizer;
+  logger!: Logger;
   template?: BasePromptTemplate;
 
   static defaults: Partial<AgentPrams> = {
@@ -66,6 +69,7 @@ export class Agent implements AgentPrams {
     actionSuffix: '<!-- Provide action here -->',
     maxRetries: 7,
     maxIterations: Number.MAX_SAFE_INTEGER,
+    logger: createLogger({ transports: [new transports.Console()] }),
     examples: [
       new Activity({
         kind: ActivityKind.Observation,
@@ -102,10 +106,9 @@ export class Agent implements AgentPrams {
     Object.assign(this, Agent.defaults, params);
   }
 
-  addActivities(...experience: Activity[]) {
-    experience.forEach(e => console.log(e));
-
-    this.history.push(...experience)
+  addActivities(...activities: Activity[]) {
+    activities.forEach(a => this.logger.debug(a));
+    this.history.push(...activities)
   }
 
   async prompt(params?: Record<string, string>) {
@@ -155,24 +158,27 @@ export class Agent implements AgentPrams {
       try {
         activities = [...activities, ...Activity.parse(completion)];
       } catch (e) {
-        console.log(e)
-        continue; // retry due to malformed output
+        this.logger.warn(e);
+        this.logger.debug(`Retry ${i + 1} due to malformed output`);
+        continue;
       }
 
       const activity = activities.at(-1)
 
       if (activity.kind === ActivityKind.Thought) {
-        continue; // retry for action
+        this.logger.debug(`Retry ${i + 1} due to missing action`);
+        continue;
       }
 
       if (activity.kind === ActivityKind.Action) {
         try {
           const observation = await this.execute(activity);
-          // TODO: clean-up retries so that iteration consist first thought and last action and observation
           return [...activities, new Activity({ kind: ActivityKind.Observation, input: observation })];
         } catch(e) {
-          activities.push(new Activity({ kind: ActivityKind.Observation, input: e }))
-          continue; // retry with error;
+          const err = e as Error;
+          activities.push(new Activity({ kind: ActivityKind.Observation, input: err.toString() }))
+          this.logger.debug(`Retry ${i + 1} due to action error`);
+          continue;
         }
       }
     }

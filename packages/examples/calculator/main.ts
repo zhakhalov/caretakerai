@@ -1,4 +1,5 @@
 import dedent from 'dedent';
+import { createLogger, transports, level } from 'winston';
 import { config } from 'dotenv';
 import { Activity, ActivityKind, Agent, Optimizer } from '@caretaker/agent';
 import { OpenAI } from 'langchain/llms/openai';
@@ -39,6 +40,9 @@ const main = async () => {
     name: 'CalculatorAI',
     description: '',
     llm,
+    logger: createLogger({
+      transports: [new transports.Console({ level: 'debug' })]
+    }),
     actions: [
       new Say(),
       new Sum(),

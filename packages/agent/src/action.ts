@@ -89,8 +89,13 @@ export abstract class Action<P = any, R = any> {
   }
 
   async _call(input: string, agent: Agent) {
-    const params = JSON.parse(input);
-    ajv.compile(this.params)(params);
+    const params = JSON.parse(input) as P;
+    const validator = ajv.compile(this.params)
+    const isValid = validator(params);
+
+    if (!isValid) {
+      throw new Error(`Action "${this.kind}" params are not valid: ${ajv.errorsText(validator.errors)} `);
+    }
 
     const result = await this.call({ params, agent });
 

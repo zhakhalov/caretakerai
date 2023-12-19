@@ -4,7 +4,7 @@
   "description": "",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start:calculator": "tsx src/calculator/agent.ts"
+    "start:calculator": "tsx calculator/main.ts"
   },
   "author": "",
   "license": "ISC",
@@ -19,6 +19,8 @@
     "langchain": "^0.0.191",
     "ml-distance": "^4.0.1",
     "natural": "^6.7.2",
+    "tiktoken": "^1.0.11",
+    "winston": "^3.11.0",
     "zod": "^3.22.4",
     "zod-to-json-schema": "^3.22.3"
   },
