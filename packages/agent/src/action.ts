@@ -91,7 +91,13 @@ export abstract class Action<P = any, R = any> {
   async _call(input: string, agent: Agent) {
     const params = JSON.parse(input);
     ajv.compile(this.params)(params);
+
     const result = await this.call({ params, agent });
+
+    if (typeof result === 'string') {
+      return result;
+    }
+
     return JSON.stringify(result);
   }
 }

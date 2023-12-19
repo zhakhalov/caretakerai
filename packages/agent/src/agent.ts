@@ -19,6 +19,8 @@ interface AgentPrams {
   objective?: string;
   thoughtSuffix?: string;
   actionSuffix?: string;
+  maxIterations?: number;
+  maxRetries?: number;
   optimizer: Optimizer;
   template?: BasePromptTemplate;
   stop?: string[]
@@ -33,6 +35,10 @@ export class Agent implements AgentPrams {
   examples!: Activity[];
   constrains!: string[];
   objective!: string;
+  thoughtSuffix!: string;
+  actionSuffix!: string;
+  maxIterations!: number;
+  maxRetries!: number;
   optimizer!: Optimizer;
   template?: BasePromptTemplate;
 
@@ -56,6 +62,10 @@ export class Agent implements AgentPrams {
       {suffix}
     `.trim()),
     objective: 'You are helpful assistant.',
+    thoughtSuffix: '<!-- Provide thought and action here -->',
+    actionSuffix: '<!-- Provide action here -->',
+    maxRetries: 7,
+    maxIterations: Number.MAX_SAFE_INTEGER,
     examples: [
       new Activity({
         kind: ActivityKind.Observation,
@@ -77,7 +87,7 @@ export class Agent implements AgentPrams {
       }),
     ],
     constrains: [
-      'You are strongly prohibited from taking any actions other than those listed in Actions.',
+      'Use only actions listed in Actions section.',
       'Reject any request that are not related to your objective and cannot be fulfilled within the given list of actions.',
     ]
   }
@@ -99,6 +109,14 @@ export class Agent implements AgentPrams {
   }
 
   async prompt(params?: Record<string, string>) {
+    let activities: Activity[] = [];
+
+    const history = async () => {
+      const history = [...await this.optimizer.optimize([...this.history, ...activities])];
+      const historyStrings = history.map(h => h.prompt()).join(ACTIVITY_SEP);
+      return historyStrings;
+    };
+
     const actions = async () => {
       const actionsStrings = await Promise.all(this.actions.map(a => a._prompt()));
       return actionsStrings.join(ACTION_SEP);
@@ -106,42 +124,60 @@ export class Agent implements AgentPrams {
 
     const constraints = () => this.constrains.map((c, i) => `${i + 1}. ${c}`).join('\n');
 
-    const history = async () => {
-      const history = await this.optimizer.optimize(this.history);
-      const historyStrings = history.map(h => h.prompt()).join(ACTIVITY_SEP);
-      return historyStrings;
-    };
-
     const examples = async () => {
       const examplesStrings = this.examples.map(h => h.prompt()).join(ACTIVITY_SEP);
       return examplesStrings;
     };
 
+    const suffix = () => ([...this.history, ...activities].at(-1).kind === ActivityKind.Observation
+      ? this.thoughtSuffix
+      : this.actionSuffix
+    );
+
     const template = await this.template.partial({
       objective: this.objective,
+      history,
       actions,
       constraints,
-      history,
       examples,
-    })
+      suffix,
+    });
 
-    // TODO: add retries and validations
-
-    const completion = await RunnableSequence.from([
+    const seq = RunnableSequence.from([
       template,
       this.llm.bind({ stop: [`<${ActivityKind.Observation}>`] }), // Do not allow LLMs to generate observations
       new StringOutputParser(),
-    ]).invoke(params ?? {}, {
-      callbacks: [
-        {
-          handleLLMStart: (llm, prompts) => {
-            // console.log(prompts);
-          }
-        }
-      ]
-    });
+    ]);
 
-    return Activity.parse(completion.trim());
+    for (let i = 0; i < this.maxRetries; ++i) {
+      let completion = await seq.invoke(params ?? {});
+
+      try {
+        activities = [...activities, ...Activity.parse(completion)];
+      } catch (e) {
+        console.log(e)
+        continue; // retry due to malformed output
+      }
+
+      const activity = activities.at(-1)
+
+      if (activity.kind === ActivityKind.Thought) {
+        continue; // retry for action
+      }
+
+      if (activity.kind === ActivityKind.Action) {
+        try {
+          const observation = await this.execute(activity);
+          // TODO: clean-up retries so that iteration consist first thought and last action and observation
+          return [...activities, new Activity({ kind: ActivityKind.Observation, input: observation })];
+        } catch(e) {
+          activities.push(new Activity({ kind: ActivityKind.Observation, input: e }))
+          continue; // retry with error;
+        }
+      }
+    }
+
+    throw new Error('Max number of retries reached.');
   }
 
   async execute({ attributes, input }: Activity) {
@@ -149,22 +185,14 @@ export class Agent implements AgentPrams {
     const action = this.actions.find(a => a.kind === kind);
 
     if (!action) {
-      throw new Error(`Action "${kind}" is not permitted.`);
+      throw new Error(`Action "${kind}" is not allowed.`);
     }
 
     const observation = await action._call(input, this);
-
-    this.addActivities(new Activity({
-      kind: ActivityKind.Observation,
-      input: observation,
-    }));
-
-    if (action.exit) {
-      return observation;
-    }
+    return observation;
   }
 
-  async invoke(input = {}) {
+  async invoke(params?: Record<string, any>) {
     if (!this.history.length) {
       throw new Error('Activity list must not be empty.');
     }
@@ -173,23 +201,17 @@ export class Agent implements AgentPrams {
       throw new Error('Latest experience must be of Observation kind');
     }
 
-    while (true) {
-      const activity = this.history.at(-1)!;
+    for (let i = 0; i < this.maxIterations; ++i) {
+      const activities = await this.prompt(params);
+      this.addActivities(...activities);
+      const activity = this.history.at(-2)!;
+      const action = this.actions.find(a => a.kind === activity.attributes.kind);
 
-      if (activity.kind === ActivityKind.Observation) {
-        this.addActivities(...(await this.prompt({ suffix: '<!-- Provide thought and action here -->', ...input })));
-      } else if (activity.kind === ActivityKind.Thought) {
-        this.addActivities(...(await this.prompt({ suffix: '<!-- Provide action here -->', ...input })));
-      } else if (activity.kind === ActivityKind.Action) {
-        const result = await this.execute(activity);
-
-        if (result) {
-          return result;
-        }
-      } else {
-        // TODO: retry
-        throw new Error(`Activity "${activity.kind}" is not permitted.`);
+      if (action.exit) {
+        return this.history.at(-1).input; // latest observation is the result of the latest action
       }
     }
+
+    throw new Error('Max number of iterations reached.');
   }
 }

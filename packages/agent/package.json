@@ -2,8 +2,7 @@
   "name": "@caretakerai/agent",
   "version": "0.0.3",
   "description": "Single framework for building text-agents",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "src/index.ts",
   "files": [
     "dist"
   ],

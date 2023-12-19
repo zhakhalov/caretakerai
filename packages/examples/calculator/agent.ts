@@ -11,9 +11,9 @@ import { Divide } from './actions/divide';
 config();
 
 class SimpleOptimizer implements Optimizer {
-  constructor (
+  constructor(
     readonly wordLimit: number
-  ) {}
+  ) { }
 
   async optimize(activities: Activity[]): Promise<Activity[]> {
     let wordCount = activities.map(act => act.input.split(' ').length).reduce((a, b) => a + b, 0);

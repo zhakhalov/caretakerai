@@ -39,7 +39,7 @@ export class Activity implements ActivityParams {
     return new Activity({ kind, attributes, input });
   }
 
-  static parse(text: string) {
+  static parse(text: string): Activity[] {
     const { elements: [root] } = xml2js(`<root>${text}</root>`, { trim: true } );
 
     return root.elements.map(({ name, attributes, elements }: Element) => {
