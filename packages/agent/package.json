@@ -1,10 +1,12 @@
 {
   "name": "@caretakerai/agent",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Single framework for building text-agents",
-  "main": "src/index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",

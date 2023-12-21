@@ -1,16 +1,27 @@
 import { Element, js2xml, xml2js } from 'xml-js';
 
+/**
+ * Enum representing the kinds of activities that an agent can perform.
+ */
 export enum ActivityKind {
+  /** An observation made by the agent. */
   Observation = 'Observation',
+  /** A thought process of the agent. */
   Thought = 'Thought',
+  /** An action taken by the agent. */
   Action = 'Action'
 }
 
+/**
+ * Parameters for creating a new Activity instance.
+ */
 export type ActivityParams = {
+  /** The kind of activity. */
   kind: ActivityKind;
+  /** The input or content of the activity. */
   input: string;
+  /** Optional attributes to provide additional context for the activity. */
   attributes?: Record<string, string>;
-  tokens?: number;
 }
 
 export class Activity implements ActivityParams {
