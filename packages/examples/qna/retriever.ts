@@ -5,7 +5,7 @@ import { PDFLoader } from 'langchain/document_loaders/fs/pdf';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { FaissStore } from 'langchain/vectorstores/faiss';
 
-export const create = async () => {
+export const fromDocuments = async () => {
   const loader = new DirectoryLoader(resolve(process.cwd(), 'qna/docs'), {
     '.pdf': (path) => new PDFLoader(path)
   });
@@ -20,3 +20,8 @@ export const create = async () => {
   await store.save(resolve(process.cwd(), 'qna/docs'));
   return store.asRetriever();
 };
+
+export const fromExistingIndex = async () => {
+  const store = await FaissStore.load('qna/docs', new OpenAIEmbeddings());
+  return store.asRetriever();
+}

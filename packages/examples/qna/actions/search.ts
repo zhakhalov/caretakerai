@@ -5,41 +5,41 @@ import { VectorStoreRetriever } from 'langchain/vectorstores/base';
 import { RetrievalQAChain } from 'langchain/chains';
 import { BaseLLM } from 'langchain/llms/base';
 import { Action, ActionInput, Activity, ActivityKind } from '@caretaker/agent';
-import { JSONSchema } from 'json-schema-to-typescript';
 
-const SearchParamsSchema = z.array(z.string().describe('The search query string'));
-
+const SearchParamsSchema = z.array(z.string()).describe('The search queries');
 type SearchParams = z.infer<typeof SearchParamsSchema>;
-
 const SearchParamsJsonSchema = zodToJsonSchema(SearchParamsSchema, 'SearchParamsSchema')
-  .definitions!.SearchParamsSchema as JSONSchema;
+  .definitions!.SearchParamsSchema as any;
 
-const SearchResultSchema = z.string().describe('The search result as a string');
-
+const SearchResultSchema = z.string().describe('The search results for each input query');
 type SearchResult = z.infer<typeof SearchResultSchema>;
-
 const SearchResultJsonSchema = zodToJsonSchema(SearchResultSchema, 'SearchResultSchema')
-  .definitions!.SearchResultSchema as JSONSchema;
+  .definitions!.SearchResultSchema as any;
 
 export class Search extends Action<SearchParams, SearchResult> {
   readonly params = SearchParamsJsonSchema;
   readonly result = SearchResultJsonSchema;
   readonly exit = false;
   readonly kind = Search.name;
-  readonly description = 'Perform a text-search in the knowledge base and return the results as a string.';
+  readonly description = 'Perform text-searches in the knowledge base and return the results as strings.';
   readonly examples = [{
-    description: 'The following example show the method of searching the information on the complex topic.',
+    description: 'The following example shows the method of searching for information on complex topics.',
     activities: [
-      new Activity({ kind: ActivityKind.Observation, input: 'The user is asking for the difference between white hole and black hole' }),
-      new Activity({ kind: ActivityKind.Thought, input: 'The user is looking for distinctive features of separate entities of the universe. I should split my search in to 2.' }),
-      new Activity({ kind: ActivityKind.Action, attributes: { kind: Search.name }, input: JSON.stringify(['What is the nature of a black hole?'], null, 2) }),
-      new Activity({ kind: ActivityKind.Observation, input: 'The nature of black hole is...' }),
-      new Activity({ kind: ActivityKind.Thought, input: 'The search result provides enough information on the nature of black holes. I should proceed with the second stage of the query.' }),
-      new Activity({ kind: ActivityKind.Action, attributes: { kind: Search.name }, input: JSON.stringify({ query: 'What is the nature of a white hole?' }, null, 2) }),
-      new Activity({ kind: ActivityKind.Observation, input: 'The nature of black hole is...' }),
+      new Activity({ kind: ActivityKind.Observation, input: 'The user is asking for the difference between a white hole and a black hole' }),
+      new Activity({ kind: ActivityKind.Thought, input: 'The user is looking for distinctive features of separate entities of the universe. I should split my search into 2.' }),
+      new Activity({ kind: ActivityKind.Action, attributes: { kind: Search.name }, input: JSON.stringify(['What is the nature of a black hole?', 'What is the nature of a white hole?'], null, 2) }),
+      new Activity({
+        kind: ActivityKind.Observation,
+        input: dedent`
+          Query: What is the nature of a black hole?
+          Result: The nature of a black hole is...
+
+          Query: What is the nature of a white hole?
+          Result: The nature of a white hole is...
+        `.trim()
+      }),
     ]
-  }
-  ];
+  }]
 
   constructor(
     private retriever: VectorStoreRetriever,
@@ -50,8 +50,10 @@ export class Search extends Action<SearchParams, SearchResult> {
 
   async call({ params }: ActionInput<SearchParams>): Promise<SearchResult> {
     const chain = RetrievalQAChain.fromLLM(this.llm, this.retriever);
-    const { text } = await chain.call(params);
-
-    return text;
+    const results = await Promise.all(params.map(query => chain.call({ query })));
+    return params.map((query, index) => dedent`
+      Query: ${query}
+      Result: ${results[index].text}
+    `.trim()).join('\n\n');
   }
 }

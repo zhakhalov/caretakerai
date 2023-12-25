@@ -5,7 +5,7 @@ import { Activity, ActivityKind, Agent, Optimizer } from '@caretaker/agent';
 import { OpenAI } from 'langchain/llms/openai';
 import { Say } from './actions/say';
 import { Search } from './actions/search';
-import { create } from './retriever';
+import { fromDocuments, fromExistingIndex } from './retriever';
 
 config();
 
@@ -29,13 +29,14 @@ class SimpleOptimizer implements Optimizer {
 
 const main = async () => {
   const llm = new OpenAI({
-    modelName: 'gpt-3.5-turbo',
+    modelName: 'gpt-4-1106-preview',
     temperature: 0.7,
     maxTokens: 256,
     callbacks: [{ handleLLMStart: (_, [prompt]) => console.log(prompt) }]
   });
 
-  const retriever = await create();
+  // const retriever = await fromDocuments();
+  const retriever = await fromExistingIndex();
 
   const agent = new Agent({
     name: 'QnA',
@@ -51,7 +52,7 @@ const main = async () => {
     history: [
       new Activity({ kind: ActivityKind.Observation, input: 'The user says: How can you help me?' })
     ],
-    optimizer: new SimpleOptimizer(8000),
+    optimizer: new SimpleOptimizer(3000),
     objective: dedent`
       1. Help the user with finding information.
       2. Search no more then 7 times before providing the answer.
