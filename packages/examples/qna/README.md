@@ -16,8 +16,8 @@ The main components of this example are:
 To run this example, you need to have a retriever set up. The retriever can be created from documents using `fromDocuments` or loaded from an existing index using `fromExistingIndex`. The documents should be placed in the `qna/docs` directory.
 
 ## Running the Example
-
-Execute `npm start:qna` from `examples` package root to start the QnA agent. The agent will use the provided retriever to search for answers to user queries and optimize the conversation flow based on the defined objectives.
+- Add PDF files to `docs/` directory so the agent can index them.
+- Execute `npm start:qna` from `examples` package root to start the QnA agent. The agent will use the provided retriever to search for answers to user queries and optimize the conversation flow based on the defined objectives.
 
 **Note:** `OPENAI_API_KEY` should be supplied in `.env` file in `examples` package root
 
