@@ -5,7 +5,7 @@ import { Activity, ActivityKind, Agent, Optimizer } from '@caretaker/agent';
 import { OpenAI } from 'langchain/llms/openai';
 import { Say } from './actions/say';
 import { Search } from './actions/search';
-import { createStore } from './store';
+import { create } from './retriever';
 
 config();
 
@@ -29,15 +29,13 @@ class SimpleOptimizer implements Optimizer {
 
 const main = async () => {
   const llm = new OpenAI({
-    modelName: 'gpt-3.5-turbo-16k',
+    modelName: 'gpt-3.5-turbo',
     temperature: 0.7,
-    maxTokens: 512,
-    frequencyPenalty: 1,
-    presencePenalty: 1,
+    maxTokens: 256,
     callbacks: [{ handleLLMStart: (_, [prompt]) => console.log(prompt) }]
   });
 
-  const store = await createStore();
+  const retriever = await create();
 
   const agent = new Agent({
     name: 'QnA',
@@ -48,7 +46,7 @@ const main = async () => {
     }),
     actions: [
       new Say(),
-      new Search(store),
+      new Search(retriever, llm),
     ],
     history: [
       new Activity({ kind: ActivityKind.Observation, input: 'The user says: How can you help me?' })

@@ -174,11 +174,8 @@ export class Agent implements AgentPrams {
     for (let i = 0; i < this.maxRetries; ++i) {
       let completion = await seq.invoke(params ?? {});
 
-      this.logger.debug(completion);
-
       try {
         activities = [...activities, ...Activity.parse(completion)];
-        this.logger.debug('Completion activities', activities);
       } catch (e) {
         this.logger.warn(e);
         this.logger.debug(`Retry ${i + 1} due to malformed output`);
