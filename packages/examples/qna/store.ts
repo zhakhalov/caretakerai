@@ -6,7 +6,7 @@ import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { MemoryVectorStore } from 'langchain/vectorstores/memory';
 
 export const createStore = async () => {
-    const loader = new DirectoryLoader(resolve(process.cwd(), 'docs'), {
+    const loader = new DirectoryLoader(resolve(process.cwd(), 'qna/docs'), {
         '.pdf': (path) => new PDFLoader(path)
     });
 
@@ -16,6 +16,6 @@ export const createStore = async () => {
     });
 
     const documents = await loader.loadAndSplit(splitter);
-    const store = MemoryVectorStore.fromDocuments(documents, new OpenAIEmbeddings());
+    const store = await MemoryVectorStore.fromDocuments(documents, new OpenAIEmbeddings());
     return store;
 }

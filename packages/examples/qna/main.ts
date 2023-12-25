@@ -29,9 +29,12 @@ class SimpleOptimizer implements Optimizer {
 
 const main = async () => {
   const llm = new OpenAI({
-    modelName: 'gpt-3.5-turbo',
+    modelName: 'gpt-3.5-turbo-16k',
     temperature: 0.7,
-    maxTokens: 256,
+    maxTokens: 512,
+    frequencyPenalty: 1,
+    presencePenalty: 1,
+    callbacks: [{ handleLLMStart: (_, [prompt]) => console.log(prompt) }]
   });
 
   const store = await createStore();
@@ -50,11 +53,12 @@ const main = async () => {
     history: [
       new Activity({ kind: ActivityKind.Observation, input: 'The user says: How can you help me?' })
     ],
-    optimizer: new SimpleOptimizer(1000),
+    optimizer: new SimpleOptimizer(8000),
     objective: dedent`
       1. Help the user with finding information.
-      2. Search up to 7 times before providing some answer.
-      3. Prefer multiple searches to answer complex questions.
+      2. Search no more then 7 times before providing the answer.
+      3. Subsequent searches must be different from one another.
+      4. Prefer multiple searches to answer complex questions.
     `.trim(),
   });
 
