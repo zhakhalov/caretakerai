@@ -51,18 +51,20 @@ export class Activity implements ActivityParams {
   }
 
   static parse(text: string): Activity[] {
-    const { elements: [root] } = xml2js(`<root>${text}</root>`, { trim: true } );
+    const { elements: [root] } = xml2js(`<root>${text}</root>`, { trim: true });
 
-    return root.elements.map(({ name, attributes, elements }: Element) => {
-      const input = js2xml({ elements })
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>');
+    return (root.elements as Element[])
+      .map(({ name, attributes, elements }: Element) => {
+        const input = js2xml({ elements: elements.filter(({ type }) => type === 'text' ) })
+          .replaceAll('&lt;', '<')
+          .replaceAll('&gt;', '>');
 
-      return Activity.fromObject({
-        kind: name,
-        input: input,
-        attributes: attributes,
-      });
-    })
+        return Activity.fromObject({
+          kind: name,
+          input: input,
+          attributes: attributes,
+        });
+      })
+      .filter(a => [ActivityKind.Action, ActivityKind.Observation, ActivityKind.Thought].includes(a?.kind)); // Filter out corrupted activities that do not have a kind
   }
 }

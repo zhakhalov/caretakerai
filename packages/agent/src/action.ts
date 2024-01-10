@@ -17,15 +17,14 @@ const ajv = ajvErrorsPlugin(
 
 const ACTION_TEMPLATE = (`
 \`\`\`ts
-{params}
-{result}
 /**
-{description}
  * @kind {kind}
- * @param {{{paramsType}}} params - {kind} action params
- * @returns {{resultType}} {kind} action result
+{description}
  * /
-function {kind}(params: {paramsType}): {resultType}
+
+{params}
+
+{result}
 {examples}\`\`\`
 `).trim();
 
@@ -72,12 +71,15 @@ export abstract class Action<P = any, R = any> {
     const resultType = `${this.kind}Result`;
 
     const partial = await PromptTemplate.fromTemplate(template).partial({
-      params: () => compile(this.params, paramsType, { bannerComment: '' }),
-      result: () => compile(this.result, resultType, { bannerComment: '' }),
-      examples: () => this._examplesPrompt()
-    });
-
-    return partial.format({
+      params: async () => {
+        const ts = await compile(this.params, paramsType, { bannerComment: '', additionalProperties: false });
+        return ts.replace(/^(export\s*)/gm, '').trim()
+      },
+      result: async () => {
+        const ts = await compile(this.result, resultType, { bannerComment: '', additionalProperties: false });
+        return ts.replace(/^(export\s*)/gm, '').trim()
+      },
+      examples: () => this._examplesPrompt(),
       kind: this.kind,
       description: this.description
         .split('\n')
@@ -86,6 +88,10 @@ export abstract class Action<P = any, R = any> {
       paramsType,
       resultType,
     });
+
+    return partial
+      .pipe(prompt => prompt.toString().trim())
+      .invoke({});
   }
 
   async _call(input: string, agent: Agent) {

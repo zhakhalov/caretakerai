@@ -3,8 +3,9 @@ import { createLogger, transports, level } from 'winston';
 import { config } from 'dotenv';
 import { Activity, ActivityKind, Agent, Optimizer } from '@caretaker/agent';
 import { OpenAI } from 'langchain/llms/openai';
+import { Fireworks } from 'langchain/llms/fireworks';
 import { Say } from './actions/say';
-import { Sum } from './actions/sum';
+import { Add } from './actions/add';
 import { Multiply } from './actions/multiply';
 import { Subtract } from './actions/subtract';
 import { Divide } from './actions/divide';
@@ -34,7 +35,28 @@ const main = async () => {
     modelName: 'gpt-3.5-turbo',
     temperature: 0.7,
     maxTokens: 256,
+    callbacks: [{
+      handleLLMStart: (_, [prompt]) => {
+        console.log('prompt', prompt)
+      },
+      handleLLMEnd: ({ generations }) => {
+        console.log('generations', generations)
+      }
+    }]
   });
+
+  // const llm = new Fireworks({
+  //   modelName: 'accounts/fireworks/models/mistral-7b',
+  //   temperature: 0.7,
+  //   callbacks: [{
+  //     handleLLMStart: (_, [prompt]) => {
+  //       console.log('prompt', prompt)
+  //     },
+  //     handleLLMEnd: ({ generations }) => {
+  //       console.log('generations', generations)
+  //     }
+  //   }]
+  // })
 
   const agent = new Agent({
     name: 'CalculatorAI',
@@ -45,7 +67,7 @@ const main = async () => {
     }),
     actions: [
       new Say(),
-      new Sum(),
+      new Add(),
       new Multiply(),
       new Subtract(),
       new Divide(),
@@ -60,6 +82,7 @@ const main = async () => {
       3. Order of Operations: PEMDAS
       The order of operations, often remembered by the acronym PEMDAS, determines the order in which mathematical operations should be performed in an expression.
       This ensures that all expressions are evaluated consistently and avoid ambiguity.
+      4. Think your plan of actions in advance.
     `.trim(),
   });
 
