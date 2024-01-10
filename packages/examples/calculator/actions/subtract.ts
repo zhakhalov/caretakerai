@@ -3,7 +3,10 @@ import { zodToJsonSchema } from 'zod-to-json-schema';
 import { Action, ActionInput } from '@caretaker/agent';
 import { JSONSchema } from 'json-schema-to-typescript';
 
-const SubtractParamsSchema = z.array(z.number()).describe('Array of numbers to subtract');
+const SubtractParamsSchema = z.object({
+  left: z.number().describe('Left operand'),
+  right: z.number().describe('Right operand')
+}).describe('Parameters for subtraction');
 type SubtractParams = z.infer<typeof SubtractParamsSchema>;
 const SubtractParamsJsonSchema = zodToJsonSchema(SubtractParamsSchema, 'SubtractParamsSchema')
   .definitions!.SubtractParamsSchema as JSONSchema;
@@ -21,7 +24,7 @@ export class Subtract extends Action<SubtractParams, SubtractResult> {
   readonly description = 'Subtract the numbers and provide you with the result.';
   readonly examples = [];
 
-  async call({ params }: ActionInput<SubtractParams>): Promise<SubtractResult> {
-    return params.reduce((acc, n) => acc - n);
+  async call({ params: { left, right } }: ActionInput<SubtractParams>): Promise<SubtractResult> {
+    return left - right;
   }
 }

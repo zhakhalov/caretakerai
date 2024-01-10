@@ -25,14 +25,10 @@ interface AgentPrams {
   history?: Activity[];
   /** Examples of activities to guide the agent. Optional. */
   examples?: Activity[];
-  /** Constraints that the agent must adhere to. Optional. */
-  constrains?: string[];
   /** The objective or goal the agent is trying to achieve. Optional. */
   objective?: string;
-  /** Suffix to append to thoughts in the agent's output. Optional. */
-  thoughtSuffix?: string;
-  /** Suffix to append to actions in the agent's output. Optional. */
-  actionSuffix?: string;
+  /** Completion instruction for the LLM. Optional. */
+  instruction?: string;
   /** The maximum number of iterations the agent can perform. Optional. */
   maxIterations?: number;
   /** The maximum number of retries for actions. Optional. */
@@ -54,9 +50,8 @@ export class Agent implements AgentPrams {
   actions!: Action[];
   history!: Activity[];
   examples!: Activity[];
-  constrains!: string[];
   objective!: string;
-  thoughtSuffix!: string;
+  instruction!: string;
   actionSuffix!: string;
   maxIterations!: number;
   maxRetries!: number;
@@ -69,9 +64,6 @@ export class Agent implements AgentPrams {
       # Objective
       {objective}
 
-      # Constraints
-      {constraints}
-
       # Actions
       The only permissible actions you may take are listed below:
       {actions}
@@ -80,12 +72,18 @@ export class Agent implements AgentPrams {
       {examples}
 
       # History:
+      {instruction}
       {history}
-      {suffix}
-    `.trim()),
+      {completions}
+    `),
     objective: 'You are helpful assistant.',
-    thoughtSuffix: '<!-- Provide thought and action here -->',
-    actionSuffix: '<!-- Provide action here -->',
+    instruction: dedent`
+      Think your further actions step by step before taking any.
+      Your must always explain your choice in your thoughts.
+      Use only actions listed in Actions section.
+      Reject any request that are not related to your objective and cannot be fulfilled within the given list of actions.
+      Provide your thought and action here.
+    `,
     maxRetries: 7,
     maxIterations: Number.MAX_SAFE_INTEGER,
     logger: createLogger({ transports: [new transports.Console()] }),
@@ -109,10 +107,6 @@ export class Agent implements AgentPrams {
         `.trim(),
       }),
     ],
-    constrains: [
-      'Use only actions listed in Actions section.',
-      'Reject any request that are not related to your objective and cannot be fulfilled within the given list of actions.',
-    ]
   }
 
   constructor(params: AgentPrams) {
@@ -134,9 +128,13 @@ export class Agent implements AgentPrams {
     let activities: Activity[] = [];
 
     const history = async () => {
-      const history = [...await this.optimizer.optimize([...this.history, ...activities])];
+      const history = await this.optimizer.optimize(this.history);
       const historyStrings = history.map(h => h.prompt()).join(ACTIVITY_SEP);
       return historyStrings;
+    };
+    const completions = async () => {
+      const activitiesStrings = activities.map(a => a.prompt()).join(ACTIVITY_SEP);
+      return activitiesStrings;
     };
 
     const actions = async () => {
@@ -144,45 +142,50 @@ export class Agent implements AgentPrams {
       return actionsStrings.join(ACTION_SEP);
     };
 
-    const constraints = () => this.constrains.map((c, i) => `${i + 1}. ${c}`).join('\n');
+    const instruction = () => this.instruction
+      .split('\n')
+      .filter(i => i)
+      .map(i => `<!-- ${i} -->`)
+      .join('\n');
 
     const examples = async () => {
       const examplesStrings = this.examples.map(h => h.prompt()).join(ACTIVITY_SEP);
       return examplesStrings;
     };
 
-    const suffix = () => ([...this.history, ...activities].at(-1).kind === ActivityKind.Observation
-      ? this.thoughtSuffix
-      : this.actionSuffix
-    );
-
     const template = await this.template.partial({
       objective: this.objective,
       history,
       actions,
-      constraints,
       examples,
-      suffix,
+      instruction,
+      completions,
     });
 
-    const seq = RunnableSequence.from([
-      template,
-      this.llm.bind({ stop: [`<${ActivityKind.Observation}>`] }), // Do not allow LLMs to generate observations
-      new StringOutputParser(),
-    ]);
+    const chain = template
+      .pipe((prompt) => prompt.toString().trim())
+      .pipe(this.llm.bind({ stop: [`<${ActivityKind.Observation}`] })) // Do not allow LLMs to generate observations)
+      .pipe(new StringOutputParser());
 
     for (let i = 0; i < this.maxRetries; ++i) {
-      let completion = await seq.invoke(params ?? {});
+      let completion = await chain.invoke(params ?? {});
 
       try {
-        activities = [...activities, ...Activity.parse(completion)];
+        const newActivities = Activity.parse(completion);
+
+        if (!newActivities.length) {
+          throw new Error('No activities generated!');
+        }
+
+        activities.push(...newActivities);
       } catch (e) {
-        this.logger.warn(e);
-        this.logger.debug(`Retry ${i + 1} due to malformed output`);
+        const err = e as Error;
+        this.logger.warn(err.message);
+        this.logger.debug(`Retry ${i + 1} due to malformed output: ${err.message}`);
         continue;
       }
 
-      const activity = activities.at(-1)
+      const activity = activities.at(-1);
 
       if (activity.kind === ActivityKind.Thought) {
         this.logger.debug(`Retry ${i + 1} due to missing action`);
@@ -192,11 +195,22 @@ export class Agent implements AgentPrams {
       if (activity.kind === ActivityKind.Action) {
         try {
           const observation = await this.execute(activity);
-          return [...activities, new Activity({ kind: ActivityKind.Observation, input: observation })];
+          return [
+            ...activities,
+            new Activity({
+              kind: ActivityKind.Observation,
+              input: observation,
+              attributes: { of: activity.attributes.kind }
+            }),
+          ];
         } catch(e) {
           const err = e as Error;
-          activities.push(new Activity({ kind: ActivityKind.Observation, input: err.toString() }))
-          this.logger.debug(`Retry ${i + 1} due to action error`);
+          activities.push(new Activity({
+            kind: ActivityKind.Observation,
+            input: err.toString(),
+            attributes: { of: activity.attributes.kind }
+          }))
+          this.logger.debug(`Retry ${i + 1} due to action error: ${err}`);
           continue;
         }
       }

@@ -3,7 +3,10 @@ import { zodToJsonSchema } from 'zod-to-json-schema';
 import { Action, ActionInput } from '@caretaker/agent';
 import { JSONSchema } from 'json-schema-to-typescript';
 
-const MultiplyParamsSchema = z.array(z.number()).describe('Array of numbers to multiply');
+const MultiplyParamsSchema = z.object({
+  left: z.number().describe('Left operand'),
+  right: z.number().describe('Right operand')
+}).describe('Parameters for multiplication');
 type MultiplyParams = z.infer<typeof MultiplyParamsSchema>;
 const MultiplyParamsJsonSchema = zodToJsonSchema(MultiplyParamsSchema, 'MultiplyParamsSchema')
   .definitions!.MultiplyParamsSchema as JSONSchema;
@@ -21,7 +24,7 @@ export class Multiply extends Action<MultiplyParams, MultiplyResult> {
   readonly description = 'Multiply the numbers and provide you with the result.';
   readonly examples = [];
 
-  async call({ params }: ActionInput<MultiplyParams>): Promise<MultiplyResult> {
-    return params.reduce((acc, n) => acc * n, 1);
+  async call({ params: { left, right } }: ActionInput<MultiplyParams>): Promise<MultiplyResult> {
+    return left * right;
   }
 }
