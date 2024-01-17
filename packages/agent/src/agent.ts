@@ -1,13 +1,13 @@
 import dedent from 'dedent';
 import { Logger, createLogger, transports } from 'winston';
-import { BasePromptTemplate, PromptTemplate } from 'langchain/prompts';
-import { RunnableSequence } from 'langchain/schema/runnable';
-import { StringOutputParser } from 'langchain/schema/output_parser';
+import { BasePromptTemplate, PromptTemplate } from '@langchain/core/prompts';
+import { isLLM } from '@langchain/core/example_selectors';
+import { StringOutputParser } from '@langchain/core/output_parsers';
 import { Action } from './action';
 import { ACTION_SEP, ACTIVITY_SEP } from './constants';
 import { Activity, ActivityKind } from './activity';
 import { Optimizer } from './types';
-import { BaseLLM } from 'langchain/dist/llms/base';
+import { BaseLanguageModel } from '@langchain/core/language_models/base';
 
 /**
  * Parameters for initializing an Agent.
@@ -18,7 +18,7 @@ interface AgentPrams {
   /** A description of the agent. */
   description: string;
   /** The language model the agent will use. */
-  llm: BaseLLM;
+  llm: BaseLanguageModel;
   /** A list of actions the agent can perform. */
   actions: Action[];
   /** The history of activities performed by the agent. Optional. */
@@ -46,7 +46,7 @@ interface AgentPrams {
 export class Agent implements AgentPrams {
   name!: string;
   description!: string;
-  llm!: BaseLLM;
+  llm!: BaseLanguageModel;
   actions!: Action[];
   history!: Activity[];
   examples!: Activity[];
@@ -72,8 +72,8 @@ export class Agent implements AgentPrams {
       {examples}
 
       # History:
-      {instruction}
       {history}
+      {instruction}
       {completions}
     `),
     objective: 'You are helpful assistant.',
@@ -82,7 +82,7 @@ export class Agent implements AgentPrams {
       Your must always explain your choice in your thoughts.
       Use only actions listed in Actions section.
       Reject any request that are not related to your objective and cannot be fulfilled within the given list of actions.
-      Provide your thought and action here.
+      Provide your Thought and Action here.
     `,
     maxRetries: 7,
     maxIterations: Number.MAX_SAFE_INTEGER,
@@ -133,6 +133,11 @@ export class Agent implements AgentPrams {
       return historyStrings;
     };
     const completions = async () => {
+      // Guide NonChat LLM to start with the thought
+      if (!activities.length && isLLM(this.llm)) {
+        return `<${ActivityKind.Thought}>`;
+      }
+
       const activitiesStrings = activities.map(a => a.prompt()).join(ACTIVITY_SEP);
       return activitiesStrings;
     };
@@ -170,12 +175,26 @@ export class Agent implements AgentPrams {
     for (let i = 0; i < this.maxRetries; ++i) {
       let completion = await chain.invoke(params ?? {});
 
+      // Guide NonChat LLM to start with the thought
+      if (!completion.startsWith(`${ActivityKind.Thought}`) && isLLM(this.llm)) {
+        completion = `<${ActivityKind.Thought}>\n${completion}`;
+      }
+
       try {
-        const newActivities = Activity.parse(completion);
+        let newActivities = Activity.parse(completion).slice(0, 2);
 
         if (!newActivities.length) {
           throw new Error('No activities generated!');
         }
+
+        // Throw if multiple thoughts are generated
+        if (newActivities.filter(a => a.kind === ActivityKind.Thought).length > 1) {
+          throw new Error('Multiple thoughts generated!');
+        }
+
+        // Forget the Actions from new activities except first one
+        const activityIndex = newActivities.findIndex(a => a.kind === ActivityKind.Action);
+        newActivities = newActivities.slice(0, activityIndex + 1)
 
         activities.push(...newActivities);
       } catch (e) {
@@ -187,32 +206,31 @@ export class Agent implements AgentPrams {
 
       const activity = activities.at(-1);
 
+      // Prompt LLM to provide action if missing
       if (activity.kind === ActivityKind.Thought) {
         this.logger.debug(`Retry ${i + 1} due to missing action`);
         continue;
       }
 
-      if (activity.kind === ActivityKind.Action) {
-        try {
-          const observation = await this.execute(activity);
-          return [
-            ...activities,
-            new Activity({
-              kind: ActivityKind.Observation,
-              input: observation,
-              attributes: { of: activity.attributes.kind }
-            }),
-          ];
-        } catch(e) {
-          const err = e as Error;
-          activities.push(new Activity({
+      try {
+        const observation = await this.execute(activity);
+        return [
+          ...activities,
+          new Activity({
             kind: ActivityKind.Observation,
-            input: err.toString(),
+            input: observation,
             attributes: { of: activity.attributes.kind }
-          }))
-          this.logger.debug(`Retry ${i + 1} due to action error: ${err}`);
-          continue;
-        }
+          }),
+        ];
+      } catch(e) {
+        const err = e as Error;
+        activities.push(new Activity({
+          kind: ActivityKind.Observation,
+          input: err.toString(),
+          attributes: { of: activity.attributes.kind }
+        }))
+        this.logger.debug(`Retry ${i + 1} due to action error: ${err}`);
+        continue;
       }
     }
 
@@ -224,7 +242,7 @@ export class Agent implements AgentPrams {
     const action = this.actions.find(a => a.kind === kind);
 
     if (!action) {
-      throw new Error(`Action "${kind}" is not allowed.`);
+      throw new Error(`Action "${kind}" is not allowed. Correct your spelling.`);
     }
 
     const observation = await action._call(input, this);

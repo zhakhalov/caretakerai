@@ -2,7 +2,7 @@ import dedent from 'dedent';
 import { createLogger, transports, level } from 'winston';
 import { config } from 'dotenv';
 import { Activity, ActivityKind, Agent, Optimizer } from '@caretaker/agent';
-import { OpenAI } from 'langchain/llms/openai';
+import { ChatOpenAI } from '@langchain/openai';
 import { Say } from './actions/say';
 import { Search } from './actions/search';
 import { fromDocuments, fromExistingIndex } from './retriever';
@@ -28,10 +28,10 @@ class SimpleOptimizer implements Optimizer {
 }
 
 const main = async () => {
-  const llm = new OpenAI({
+  const llm = new ChatOpenAI({
     modelName: 'gpt-4-1106-preview',
     temperature: 0.7,
-    maxTokens: 256,
+    maxTokens: 2000,
     callbacks: [{ handleLLMStart: (_, [prompt]) => console.log(prompt) }]
   });
 
@@ -58,6 +58,9 @@ const main = async () => {
       2. Search no more then 7 times before providing the answer.
       3. Subsequent searches must be different from one another.
       4. Prefer multiple searches to answer complex questions.
+      5. Prefer user language in making search queries and providing answers.
+      6. Prefer answers up to 300 words long.
+      7. Prefer descriptive answers split to paragraphs instead of lists.
     `.trim(),
   });
 

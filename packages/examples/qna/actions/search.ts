@@ -1,12 +1,15 @@
 import dedent from 'dedent';
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
-import { VectorStoreRetriever } from 'langchain/vectorstores/base';
+import { BaseRetriever } from '@langchain/core/retrievers';
 import { RetrievalQAChain } from 'langchain/chains';
-import { BaseLLM } from 'langchain/llms/base';
+import { BaseLanguageModel } from '@langchain/core/language_models/base';
 import { Action, ActionInput, Activity, ActivityKind } from '@caretaker/agent';
 
-const SearchParamsSchema = z.array(z.string()).describe('The search queries');
+const SearchParamsSchema = z.object({
+  queries: z.array(z.string()).describe('The search queries'),
+}).describe('Parameters for search');
+
 type SearchParams = z.infer<typeof SearchParamsSchema>;
 const SearchParamsJsonSchema = zodToJsonSchema(SearchParamsSchema, 'SearchParamsSchema')
   .definitions!.SearchParamsSchema as any;
@@ -27,7 +30,7 @@ export class Search extends Action<SearchParams, SearchResult> {
     activities: [
       new Activity({ kind: ActivityKind.Observation, input: 'The user is asking for the difference between a white hole and a black hole' }),
       new Activity({ kind: ActivityKind.Thought, input: 'The user is looking for distinctive features of separate entities of the universe. I should split my search into 2.' }),
-      new Activity({ kind: ActivityKind.Action, attributes: { kind: Search.name }, input: JSON.stringify(['What is the nature of a black hole?', 'What is the nature of a white hole?'], null, 2) }),
+      new Activity({ kind: ActivityKind.Action, attributes: { kind: Search.name }, input: JSON.stringify({ queries: ['What is the nature of a black hole?', 'What is the nature of a white hole?']}, null, 2) }),
       new Activity({
         kind: ActivityKind.Observation,
         input: dedent`
@@ -42,16 +45,16 @@ export class Search extends Action<SearchParams, SearchResult> {
   }]
 
   constructor(
-    private retriever: VectorStoreRetriever,
-    private llm: BaseLLM,
+    private retriever: BaseRetriever,
+    private llm: BaseLanguageModel,
   ) {
     super();
   }
 
-  async call({ params }: ActionInput<SearchParams>): Promise<SearchResult> {
+  async call({ params: { queries } }: ActionInput<SearchParams>): Promise<SearchResult> {
     const chain = RetrievalQAChain.fromLLM(this.llm, this.retriever);
-    const results = await Promise.all(params.map(query => chain.call({ query })));
-    return params.map((query, index) => dedent`
+    const results = await Promise.all(queries.map(query => chain.call({ query })));
+    return queries.map((query, index) => dedent`
       Query: ${query}
       Result: ${results[index].text}
     `.trim()).join('\n\n');

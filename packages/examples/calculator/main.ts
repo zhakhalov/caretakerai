@@ -2,8 +2,9 @@ import dedent from 'dedent';
 import { createLogger, transports, level } from 'winston';
 import { config } from 'dotenv';
 import { Activity, ActivityKind, Agent, Optimizer } from '@caretaker/agent';
-import { OpenAI } from 'langchain/llms/openai';
-import { Fireworks } from 'langchain/llms/fireworks';
+import { ChatOpenAI } from '@langchain/openai';
+import { Fireworks } from '@langchain/community/llms/fireworks';
+import { Ollama } from '@langchain/community/llms/ollama';
 import { Say } from './actions/say';
 import { Add } from './actions/add';
 import { Multiply } from './actions/multiply';
@@ -31,22 +32,22 @@ class SimpleOptimizer implements Optimizer {
 }
 
 const main = async () => {
-  const llm = new OpenAI({
-    modelName: 'gpt-3.5-turbo',
-    temperature: 0.7,
-    maxTokens: 256,
-    callbacks: [{
-      handleLLMStart: (_, [prompt]) => {
-        console.log('prompt', prompt)
-      },
-      handleLLMEnd: ({ generations }) => {
-        console.log('generations', generations)
-      }
-    }]
-  });
-
-  // const llm = new Fireworks({
-  //   modelName: 'accounts/fireworks/models/mistral-7b',
+  // const llm = new ChatOpenAI({
+  //   modelName: 'gpt-3.5-turbo',
+  //   temperature: 0.7,
+  //   maxTokens: 256,
+  //   callbacks: [{
+  //     handleLLMStart: (_, [prompt]) => {
+  //       console.log('prompt', prompt)
+  //     },
+  //     handleLLMEnd: ({ generations }) => {
+  //       console.log('generations', generations)
+  //     }
+  //   }]
+  // });
+  // const llm = new Ollama({
+  //   baseUrl: 'http://localhost:11434',
+  //   model: 'mistral:instruct',
   //   temperature: 0.7,
   //   callbacks: [{
   //     handleLLMStart: (_, [prompt]) => {
@@ -56,7 +57,21 @@ const main = async () => {
   //       console.log('generations', generations)
   //     }
   //   }]
-  // })
+  // });
+
+  const llm = new Fireworks({
+    modelName: 'accounts/fireworks/models/mixtral-8x7b-instruct',
+    // modelName: 'accounts/fireworks/models/mistral-7b-instruct-4k', // Does not understand special characters
+    temperature: 0.9,
+    callbacks: [{
+      handleLLMStart: (_, [prompt]) => {
+        console.log('prompt', prompt)
+      },
+      handleLLMEnd: ({ generations }) => {
+        console.log('generations', generations)
+      }
+    }]
+  })
 
   const agent = new Agent({
     name: 'CalculatorAI',
