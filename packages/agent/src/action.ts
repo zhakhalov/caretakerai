@@ -1,7 +1,7 @@
 import dedent from 'dedent';
 import Ajv from 'ajv';
 import ajvErrorsPlugin from 'ajv-errors';
-import { PromptTemplate } from 'langchain/prompts';
+import { PromptTemplate } from '@langchain/core/prompts';
 import type { Agent } from './agent';
 import { type JSONSchema, compile } from 'json-schema-to-typescript';
 import { Activity } from './activity';
