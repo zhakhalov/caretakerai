@@ -1,13 +1,12 @@
 import dedent from 'dedent';
 import { Logger, createLogger, transports } from 'winston';
 import { BasePromptTemplate, PromptTemplate } from '@langchain/core/prompts';
-import { isLLM } from '@langchain/core/example_selectors';
 import { StringOutputParser } from '@langchain/core/output_parsers';
+import { BaseLanguageModel } from '@langchain/core/language_models/base';
 import { Action } from './action';
 import { ACTION_SEP, ACTIVITY_SEP } from './constants';
 import { Activity, ActivityKind } from './activity';
 import { Optimizer } from './types';
-import { BaseLanguageModel } from '@langchain/core/language_models/base';
 
 /**
  * Parameters for initializing an Agent.
@@ -19,6 +18,8 @@ interface AgentPrams {
   description: string;
   /** The language model the agent will use. */
   llm: BaseLanguageModel;
+  /** Is chat model is used. Used to mitigate Langchain Human prefix in case of interacting with chat model. should be removed in favor of LLM selectors once fixed */
+  isChatModel?: boolean;
   /** A list of actions the agent can perform. */
   actions: Action[];
   /** The history of activities performed by the agent. Optional. */
@@ -55,6 +56,7 @@ export class Agent implements AgentPrams {
   actionSuffix!: string;
   maxIterations!: number;
   maxRetries!: number;
+  isChatModel!: boolean;
   optimizer!: Optimizer;
   logger!: Logger;
   template?: BasePromptTemplate;
@@ -85,6 +87,7 @@ export class Agent implements AgentPrams {
       Provide your Thought and Action here.
     `,
     maxRetries: 7,
+    isChatModel: false,
     maxIterations: Number.MAX_SAFE_INTEGER,
     logger: createLogger({ transports: [new transports.Console()] }),
     examples: [
@@ -134,7 +137,7 @@ export class Agent implements AgentPrams {
     };
     const completions = async () => {
       // Guide NonChat LLM to start with the thought
-      if (!activities.length && isLLM(this.llm)) {
+      if (!activities.length && !this.isChatModel) {
         return `<${ActivityKind.Thought}>`;
       }
 
@@ -176,7 +179,7 @@ export class Agent implements AgentPrams {
       let completion = await chain.invoke(params ?? {});
 
       // Guide NonChat LLM to start with the thought
-      if (!completion.startsWith(`${ActivityKind.Thought}`) && isLLM(this.llm)) {
+      if (!completion.startsWith(`${ActivityKind.Thought}`) && !this.isChatModel) {
         completion = `<${ActivityKind.Thought}>\n${completion}`;
       }
 
@@ -214,14 +217,15 @@ export class Agent implements AgentPrams {
 
       try {
         const observation = await this.execute(activity);
-        return [
+        this.addActivities(
           ...activities,
           new Activity({
             kind: ActivityKind.Observation,
             input: observation,
             attributes: { of: activity.attributes.kind }
           }),
-        ];
+        );
+        return;
       } catch(e) {
         const err = e as Error;
         activities.push(new Activity({
@@ -229,6 +233,8 @@ export class Agent implements AgentPrams {
           input: err.toString(),
           attributes: { of: activity.attributes.kind }
         }))
+        this.addActivities(...activities);
+        activities = [];
         this.logger.debug(`Retry ${i + 1} due to action error: ${err}`);
         continue;
       }
@@ -259,8 +265,7 @@ export class Agent implements AgentPrams {
     }
 
     for (let i = 0; i < this.maxIterations; ++i) {
-      const activities = await this.prompt(params);
-      this.addActivities(...activities);
+      await this.prompt(params);
       const activity = this.history.at(-2)!;
       const action = this.actions.find(a => a.kind === activity.attributes.kind);
 

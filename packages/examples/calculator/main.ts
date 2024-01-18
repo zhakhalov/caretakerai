@@ -2,7 +2,7 @@ import dedent from 'dedent';
 import { createLogger, transports, level } from 'winston';
 import { config } from 'dotenv';
 import { Activity, ActivityKind, Agent, Optimizer } from '@caretaker/agent';
-import { ChatOpenAI } from '@langchain/openai';
+import { OpenAI, ChatOpenAI } from '@langchain/openai';
 import { Fireworks } from '@langchain/community/llms/fireworks';
 import { Ollama } from '@langchain/community/llms/ollama';
 import { Say } from './actions/say';
@@ -32,7 +32,7 @@ class SimpleOptimizer implements Optimizer {
 }
 
 const main = async () => {
-  // const llm = new ChatOpenAI({
+  // const llm = new OpenAI({
   //   modelName: 'gpt-3.5-turbo',
   //   temperature: 0.7,
   //   maxTokens: 256,
@@ -60,8 +60,8 @@ const main = async () => {
   // });
 
   const llm = new Fireworks({
-    modelName: 'accounts/fireworks/models/mixtral-8x7b-instruct',
-    // modelName: 'accounts/fireworks/models/mistral-7b-instruct-4k', // Does not understand special characters
+    // modelName: 'accounts/fireworks/models/mixtral-8x7b-instruct',
+    modelName: 'accounts/fireworks/models/mistral-7b-instruct-4k', // Does not understand special characters
     temperature: 0.9,
     callbacks: [{
       handleLLMStart: (_, [prompt]) => {
@@ -77,6 +77,7 @@ const main = async () => {
     name: 'CalculatorAI',
     description: '',
     llm,
+    isChatModel: false,
     logger: createLogger({
       transports: [new transports.Console({ level: 'debug' })]
     }),
