@@ -20,8 +20,6 @@ export type ActivityParams = {
   kind: ActivityKind;
   /** The input or content of the activity. */
   input: string;
-  /** Optional attributes to provide additional context for the activity. */
-  attributes?: Record<string, string>;
 }
 
 export class Activity implements ActivityParams {
@@ -46,8 +44,8 @@ export class Activity implements ActivityParams {
     return { ...this };
   }
 
-  static fromObject({ kind, attributes, input }: Record<string, any>) {
-    return new Activity({ kind, attributes, input });
+  static fromObject({ kind, input }: Record<string, any>) {
+    return new Activity({ kind, input });
   }
 
   static parse(text: string): Activity[] {
