@@ -1,4 +1,5 @@
 import dedent from 'dedent';
+import { stringify } from 'yaml';
 import { Logger, createLogger, transports } from 'winston';
 
 import { BasePromptTemplate, PromptTemplate } from '@langchain/core/prompts';
@@ -12,6 +13,8 @@ import { GraphQLSchema, graphql } from 'graphql';
 import { ACTIVITY_SEP } from './constants';
 import { Activity, ActivityKind } from './activity';
 import { Optimizer } from './types';
+
+type GraphQLExecutor = (query: string) => Promise<Record<string, unknown>>;
 
 /**
  * Parameters for initializing an Agent.
@@ -27,8 +30,10 @@ interface AgentPrams {
   isChatModel?: boolean;
   /** A GraphQL type definitions document. */
   typeDefs: TypeSource;
-  /** A GraphQL resolvers. */
-  resolvers: IResolvers;
+  /** A GraphQL resolvers. Will be ignored if custom executor is used. Optional. */
+  resolvers?: IResolvers;
+  /** The custom GraphQL executor to handle agent action. Optional. */
+  executor?: GraphQLExecutor
   /** The history of activities performed by the agent. Optional. */
   history?: Activity[];
   /** Examples of activities to guide the agent. Optional. */
@@ -58,7 +63,7 @@ export class Agent implements AgentPrams {
   description!: string;
   llm!: BaseLanguageModel;
   typeDefs!: TypeSource;
-  resolvers!: IResolvers;
+  resolvers: IResolvers;
   history!: Activity[];
   examples: Activity[];
   objective: string;
@@ -70,6 +75,7 @@ export class Agent implements AgentPrams {
   optimizer!: Optimizer;
   logger!: Logger;
   template?: BasePromptTemplate;
+  executor?: GraphQLExecutor;
 
   readonly schema: GraphQLSchema;
 
@@ -110,13 +116,9 @@ export class Agent implements AgentPrams {
         kind: ActivityKind.Observation,
         input: dedent`
           <!-- The result of the previous action e.g. -->
-          {
-            "data": {
-              "theBestNumber": {
-                "result": 73
-              }
-            }
-          }
+          data
+            theBestNumber:
+              result: 73
         `.trim(),
       }),
       new Activity({
@@ -126,7 +128,7 @@ export class Agent implements AgentPrams {
       new Activity({
         kind: ActivityKind.Action,
         input: dedent`
-          <!-- The action input as valid GraphQL expression e.g. -->
+          <!-- The action must be a single executable GraphQL request e.g. -->
           \`\`\`graphql
           mutation {
             say(input: { message: "The best number is 73!" }) {
@@ -141,9 +143,12 @@ export class Agent implements AgentPrams {
 
   constructor(params: AgentPrams) {
     Object.assign(this, Agent.defaults, params);
-    const { typeDefs, resolvers } = params;
-    this.schema = makeExecutableSchema({ typeDefs, resolvers });
-    this.schema
+    const { typeDefs, resolvers, executor } = params;
+
+    // Create schema and validate
+    if (!executor) {
+      this.schema = makeExecutableSchema({ typeDefs, resolvers });
+    }
   }
 
   addActivities(...activities: Activity[]) {
@@ -243,22 +248,30 @@ export class Agent implements AgentPrams {
           .replace(/```$/, '') // Remove trailing coding tag (```)
           .trim();
 
-        const result = await graphql({ schema: this.schema, source });
-        const observation = JSON.stringify(result, null, 2);
+
+        // Prefer custom executor is specified
+        const result = this.executor
+          ? await this.executor(source)
+          : await graphql({ schema: this.schema, source });
+
+        // Add new observation to the history
         this.addActivities(
           ...activities,
           new Activity({
             kind: ActivityKind.Observation,
-            input: observation,
+            input: stringify(result),
           }),
         );
+
         return;
       } catch(e) {
         const err = e as Error;
+
         activities.push(new Activity({
           kind: ActivityKind.Observation,
           input: err.toString(),
-        }))
+        }));
+
         this.addActivities(...activities);
         activities = [];
         this.logger.debug(`Retry ${i + 1} due to action error: ${err}`);
@@ -271,7 +284,7 @@ export class Agent implements AgentPrams {
 
   async invoke(params?: Record<string, any>) {
     if (!this.history.length) {
-      throw new Error('Activity list must not be empty.');
+      throw new Error('History must not be empty.');
     }
 
     if (this.history.at(-1)?.kind !== ActivityKind.Observation) {
@@ -280,10 +293,7 @@ export class Agent implements AgentPrams {
 
     for (let i = 0; i < this.maxIterations; ++i) {
       await this.prompt(params);
-
-      if (this?.signal.aborted) {
-        throw this?.signal.reason;
-      }
+      this.signal?.throwIfAborted();
     }
 
     throw new Error('Max number of iterations reached.');

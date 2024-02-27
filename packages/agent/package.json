@@ -1,6 +1,6 @@
 {
   "name": "@caretakerai/agent",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "description": "Single framework for building text-agents",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -22,7 +22,8 @@
     "debug": "^4.3.4",
     "json-schema-to-typescript": "^13.1.1",
     "winston": "^3.11.0",
-    "xml-js": "^1.6.11"
+    "xml-js": "^1.6.11",
+    "yaml": "^2.4.0"
   },
   "devDependencies": {
     "@graphql-tools/schema": "^10.0.2",

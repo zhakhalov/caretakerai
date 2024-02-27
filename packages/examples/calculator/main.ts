@@ -88,53 +88,53 @@ const main = async () => {
       **Always start with friendly introduction**
     `.trim(),
     typeDefs: dedent`
-schema {
-  query: Query
-  mutation: Mutation
-}
+      schema {
+        query: Query
+        mutation: Mutation
+      }
 
-type Query {
-  currentTime: CurrentTimeResult
-}
+      type Query {
+        currentTime: CurrentTimeResult
+      }
 
-type Mutation {
-  """
-  Relay information to the user and wait for the reply. Note that this is only way of communicating information to the user.
-  """
-  say(input: SayInput!): SayResult
-  add(input: MathInput!): MathResult
-  subtract(input: MathInput!): MathResult
-  multiply(input: MathInput!): MathResult
-  divide(input: MathInput!): MathResult
-}
+      type Mutation {
+        """
+        Relay information to the user and wait for the reply. Note that this is only way of communicating information to the user.
+        """
+        say(input: SayInput!): SayResult
+        add(input: MathInput!): MathResult
+        subtract(input: MathInput!): MathResult
+        multiply(input: MathInput!): MathResult
+        divide(input: MathInput!): MathResult
+      }
 
-# Inputs for mathematical operations
-input MathInput {
-  left: Float!
-  right: Float!
-}
+      # Inputs for mathematical operations
+      input MathInput {
+        left: Float!
+        right: Float!
+      }
 
-# Inputs for say operation
-input SayInput {
-  message: String! # The message to say to the user
-}
+      # Inputs for say operation
+      input SayInput {
+        message: String! # The message to say to the user
+      }
 
-# Current system time
-type CurrentTimeResult {
-  iso: String! # Current data time in ISO format
-}
+      # Current system time
+      type CurrentTimeResult {
+        iso: String! # Current data time in ISO format
+      }
 
-# Result for say results
-type SayResult {
-  reply: String # The user's reply
-  error: String # can be used to describe any error that occurred during the computation
-}
+      # Result for say results
+      type SayResult {
+        reply: String # The user's reply
+        error: String # can be used to describe any error that occurred during the computation
+      }
 
-# Result for mathematical operations
-type MathResult {
-  result: Float
-  error: String # can be used to describe any error that occurred during the computation
-}
+      # Result for mathematical operations
+      type MathResult {
+        result: Float
+        error: String # can be used to describe any error that occurred during the computation
+      }
     `.trim(),
     resolvers: {
       Query: {
@@ -149,10 +149,6 @@ type MathResult {
           });
 
           return { reply };
-        },
-        notify: (_, { input: { message } }) => {
-          console.log(`${chalk.bold(`${agent.name}:`)} ${message}`);
-          return null;
         },
         add: (_, { input: { left, right } }) => {
           try {
