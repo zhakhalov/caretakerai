@@ -1,11 +1,12 @@
 import dedent from 'dedent';
-import { createLogger, transports, level } from 'winston';
 import chalk from 'chalk';
+import yaml from 'yaml';
 import inputPrompt from '@inquirer/input';
 import { config } from 'dotenv';
 import { Activity, ActivityKind, Agent, Optimizer } from '@caretaker/agent';
 import { OpenAI, ChatOpenAI } from '@langchain/openai';
-import { Fireworks } from '@langchain/community/llms/fireworks';
+import { ChatFireworks } from '@langchain/community/chat_models/fireworks';
+import { ChatGroq } from '@langchain/groq';
 import { Ollama } from '@langchain/community/llms/ollama';
 
 config();
@@ -29,9 +30,8 @@ class SimpleOptimizer implements Optimizer {
 }
 
 const main = async () => {
-  const llm = new OpenAI({
+  const llm = new ChatOpenAI({
     modelName: 'gpt-3.5-turbo',
-    temperature: 0.7,
     maxTokens: 256,
     callbacks: [{
       handleLLMStart: (_, [prompt]) => {
@@ -42,6 +42,7 @@ const main = async () => {
       }
     }]
   });
+
   // const llm = new Ollama({
   //   baseUrl: 'http://localhost:11434',
   //   model: 'mistral:instruct',
@@ -56,12 +57,13 @@ const main = async () => {
   //   }]
   // });
 
-  // const llm = new Fireworks({
+  // const llm = new ChatFireworks({
   //   // modelName: 'accounts/fireworks/models/mixtral-8x7b-instruct',
-  //   modelName: 'accounts/fireworks/models/mistral-7b-instruct-4k', // Does not understand special characters
-  //   temperature: 0.9,
+  //   // modelName: 'accounts/fireworks/models/mistral-7b-instruct-4k', // Does not understand special characters
+  //   modelName: 'accounts/fireworks/models/llama-v3-8b-instruct', // Does not understand special characters
+  //   temperature: 0.7,
   //   callbacks: [{
-  //     handleLLMStart: (_, [prompt]) => {
+  //     handleLLMStart: (_, prompt) => {
   //       console.log('prompt', prompt)
   //     },
   //     handleLLMEnd: ({ generations }) => {
@@ -69,6 +71,19 @@ const main = async () => {
   //     }
   //   }]
   // })
+  // const llm = new ChatGroq({
+  //   // modelName: 'gemma-7b-it', // Does not understand special characters
+  //   callbacks: [{
+  //     handleLLMStart: (_, prompt) => {
+  //       console.log('prompt', prompt)
+  //     },
+  //     handleLLMEnd: ({ generations }) => {
+  //       console.log('generations', generations)
+  //     }
+  //   }]
+  // })
+
+  const controller = new AbortController();
 
   const agent = new Agent({
     name: 'CalculatorAI',
@@ -85,19 +100,16 @@ const main = async () => {
       The order of operations, often remembered by the acronym PEMDAS, determines the order in which mathematical operations should be performed in an expression.
       This ensures that all expressions are evaluated consistently and avoid ambiguity.
       4. Notify the user about avery action you take.
+      5. Finish the exercise once user say "Thank you!" with the latest result. no other actions is possible finishing the exercise
       **Always start with friendly introduction**
     `.trim(),
-    typeDefs: dedent`
+    typeDefs: dedent /* GraphQL */ `
       schema {
         query: Query
-        mutation: Mutation
       }
 
       type Query {
         currentTime: CurrentTimeResult
-      }
-
-      type Mutation {
         """
         Relay information to the user and wait for the reply. Note that this is only way of communicating information to the user.
         """
@@ -106,6 +118,7 @@ const main = async () => {
         subtract(input: MathInput!): MathResult
         multiply(input: MathInput!): MathResult
         divide(input: MathInput!): MathResult
+        finish(input: FinishInput!): Float
       }
 
       # Inputs for mathematical operations
@@ -117,6 +130,11 @@ const main = async () => {
       # Inputs for say operation
       input SayInput {
         message: String! # The message to say to the user
+      }
+
+      # Inputs for finish operation
+      input FinishInput {
+        result: Float!
       }
 
       # Current system time
@@ -138,10 +156,8 @@ const main = async () => {
     `.trim(),
     resolvers: {
       Query: {
-        currentTime: () => ({ iso: new Date().toISOString() })
-      },
-      Mutation: {
-        say: async (_, { input: { message } }) => {
+        currentTime: () => ({ iso: new Date().toISOString() }),
+        say: async (_, { input: { message } }, context, info) => {
           console.log(`${chalk.bold(`${agent.name}:`)} ${message}`);
 
           const reply = await inputPrompt({
@@ -178,11 +194,15 @@ const main = async () => {
             return { error };
           }
         },
+        finish(_, { input }) {
+          controller.abort();
+          return input.result;
+        }
       }
     },
     history: [
       new Activity({
-        kind: ActivityKind.Observation, input: JSON.stringify({
+        kind: ActivityKind.Observation, input: yaml.stringify({
           data: { say: { reply: 'Hi!, how can you help me?' } }
         }, null, 2)
       })
@@ -190,7 +210,9 @@ const main = async () => {
     optimizer: new SimpleOptimizer(1000),
   });
 
-  await agent.invoke();
+  const result = await agent.invoke();
+
+  console.log(result);
 };
 
 main();

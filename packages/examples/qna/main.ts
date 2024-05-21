@@ -1,5 +1,5 @@
 import dedent from 'dedent';
-import { createLogger, transports, level } from 'winston';
+import pino from 'pino';
 import { config } from 'dotenv';
 import { Activity, ActivityKind, Agent, Optimizer } from '@caretaker/agent';
 import { ChatOpenAI } from '@langchain/openai';
@@ -33,7 +33,9 @@ const main = async () => {
     modelName: 'gpt-3.5-turbo-16k',
     temperature: 0.7,
     maxTokens: 2000,
-    callbacks: [{ handleLLMStart: (_, [prompt]) => console.log(prompt) }]
+    callbacks: [{ handleLLMStart: (_, [prompt]) => {
+      console.log(prompt)
+    } }]
   });
 
   // const retriever = await fromDocuments();
@@ -44,9 +46,7 @@ const main = async () => {
     description: '',
     isChatModel: true,
     llm,
-    logger: createLogger({
-      transports: [new transports.Console({ level: 'debug' })]
-    }),
+    logger: pino({ level: 'debug' }),
     objective: dedent`
       1. Help the user with finding information.
       2. Search no more then 7 times before providing the answer.
@@ -56,7 +56,7 @@ const main = async () => {
       6. Prefer answers up to 300 words long.
       7. Prefer descriptive answers split to paragraphs instead of lists.
     `.trim(),
-    typeDefs: dedent`
+    typeDefs: dedent /* GraphQL */`
       schema {
         query: Query
         mutation: Mutation
@@ -148,7 +148,7 @@ const main = async () => {
       },
     },
     history: [
-      new Activity({ kind: ActivityKind.Observation, input: dedent`
+      new Activity({ kind: ActivityKind.Observation, input: dedent /* yaml */`
         data:
           say:
           reply: How can you help me?
