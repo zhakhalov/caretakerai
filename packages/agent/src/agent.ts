@@ -2,19 +2,19 @@ import dedent from 'dedent';
 import { stringify } from 'yaml';
 import pino, { Logger } from 'pino';
 
-import { BasePromptTemplate, PromptTemplate} from '@langchain/core/prompts';
+import { PromptTemplate} from '@langchain/core/prompts';
 import { BaseLanguageModel } from '@langchain/core/language_models/base';
 
 import { makeExecutableSchema } from '@graphql-tools/schema';
 import type { TypeSource, IResolvers } from '@graphql-tools/utils';
-import { GraphQLSchema, graphql } from 'graphql';
+import { ExecutionResult, GraphQLSchema, graphql } from 'graphql';
 
 import { ACTIVITY_SEP } from './constants';
 import { Activity, ActivityKind } from './activity';
 import { Optimizer } from './types';
 import { SystemMessage, AIMessage, HumanMessage, BaseMessage } from '@langchain/core/messages';
 
-type GraphQLExecutor = (query: string) => Promise<Record<string, unknown>>;
+type GraphQLExecutor = (query: string) => Promise<ExecutionResult>;
 
 /**
  * Parameters for initializing an Agent.
@@ -56,6 +56,15 @@ interface AgentPrams {
   stop?: string[]
   /** The logger the agent will use for outputting information. Optional. */
   logger?: Logger;
+}
+
+export class AgentRetryError extends Error {
+  constructor(
+    message: string,
+    public errors: Error[],
+  ) {
+    super(message)
+  }
 }
 
 export class Agent implements AgentPrams {
@@ -150,46 +159,56 @@ export class Agent implements AgentPrams {
 
   async prompt(params?: Record<string, string>) {
     let activities: Activity[] = [];
-    const history = await this.optimizer.optimize(this.history);
-    const messages: BaseMessage[] = [];
-    let aiActivities: Activity[] = [];
-
-    // Prepare chat messages
-    history.forEach(activity => {
-      if (activity.kind === ActivityKind.Observation) {
-        // AI generates Thought and Action per messages
-        messages.push(new AIMessage(aiActivities.map(a => a.prompt()).join(ACTIVITY_SEP)))
-        aiActivities = [];
-
-        // Human generates single Observation per message
-        messages.push(new HumanMessage(activity.prompt()));
-      } else {
-        aiActivities.push(activity);
-      }
-    });
-
-    // Push remaining activities to chat messages
-    if (aiActivities.length) {
-      messages.push(new AIMessage(aiActivities.map(a => a.prompt()).join(ACTIVITY_SEP)));
-    }
-
-    // Render system prompt
-    const systemPrompt = await this.template.partial({
-        objective: this.objective,
-        schema: this.typeDefs.toString(),
-        instruction: this.instruction,
-        examples: async () => this.examples.map(h => h.prompt()).join(ACTIVITY_SEP),
-    });
-
-    const { value: systemPromptValue } = await systemPrompt.invoke(params ?? {});
+    const retryErrors = [];
 
     for (let i = 0; i < this.maxRetries; ++i) {
-      let { content } = await this.llm
+      // Prepare chat messages
+      const history = await this.optimizer.optimize(this.history);
+      const messages: BaseMessage[] = [];
+      let aiActivities: Activity[] = [];
+
+      history.forEach(activity => {
+        if (activity.kind === ActivityKind.Observation) {
+          // AI generates Thought and Action per messages
+          aiActivities.length && messages.push(new AIMessage(aiActivities.map(a => a.prompt()).join(ACTIVITY_SEP)));
+          aiActivities = [];
+
+          // Human generates single Observation per message
+          messages.push(new HumanMessage(activity.prompt()));
+        } else {
+          aiActivities.push(activity);
+        }
+      });
+
+      // Push remaining activities to chat messages
+      if (aiActivities.length) {
+        messages.push(new AIMessage(aiActivities.map(a => a.prompt()).join(ACTIVITY_SEP)));
+      }
+
+      // Render system prompt
+      const systemPrompt = await this.template.partial({
+          objective: this.objective,
+          schema: this.typeDefs.toString(),
+          instruction: this.instruction,
+          examples: async () => this.examples.map(h => h.prompt()).join(ACTIVITY_SEP),
+      });
+
+      const { value: systemPromptValue } = await systemPrompt.invoke(params ?? {});
+
+      const res = await this.llm
         .bind({ stop: [`<${ActivityKind.Observation}>`] }) // Do not allow LLMs to generate observations
         .invoke([
           new SystemMessage(systemPromptValue),
           ...messages
         ]);
+
+      let { content } = res;
+      const { response_metadata } = res;
+
+      if (response_metadata?.finish_reason == 'length') {
+        retryErrors.push(new Error('Generation finished due to length reason.'));
+        continue;
+      }
 
       // Strip all possible text that preceding opening of the first Thought
       [,content] = content.split(`<${ActivityKind.Thought}>`);
@@ -219,6 +238,7 @@ export class Agent implements AgentPrams {
       } catch (e) {
         const err = e as Error;
         this.logger.warn(err.message);
+        retryErrors.push(err);
         this.logger.debug(`Retry ${i + 1} due to malformed output: ${err.message}`);
         continue;
       }
@@ -228,6 +248,7 @@ export class Agent implements AgentPrams {
       // Prompt LLM to provide action if missing
       if (activity.kind === ActivityKind.Thought) {
         this.logger.debug(`Retry ${i + 1} due to missing action`);
+        retryErrors.push(new Error('Missing action'));
         continue;
       }
 
@@ -249,6 +270,11 @@ export class Agent implements AgentPrams {
           }),
         );
 
+        if (result.errors) {
+          retryErrors.push(...result.errors)
+          continue;
+        }
+
         return;
       } catch (e) {
         const err = e as Error;
@@ -260,12 +286,14 @@ export class Agent implements AgentPrams {
 
         this.addActivities(...activities);
         activities = [];
-        this.logger.debug(`Retry ${i + 1} due to action error: ${err}`);
+        const message = `Retry ${i + 1} due to action error: ${err}`;
+        this.logger.debug(message);
+        retryErrors.push(err);
         continue;
       }
     }
 
-    throw new Error('Max number of retries reached.');
+    throw new AgentRetryError('Max number of retries reached.', retryErrors);
   }
 
   async invoke(params?: Record<string, any>) {

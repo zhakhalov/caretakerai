@@ -8,6 +8,8 @@ import { OpenAI, ChatOpenAI } from '@langchain/openai';
 import { ChatFireworks } from '@langchain/community/chat_models/fireworks';
 import { ChatGroq } from '@langchain/groq';
 import { Ollama } from '@langchain/community/llms/ollama';
+import { assert } from 'console';
+import { AgentRetryError } from '@caretaker/agent/dist/agent';
 
 config();
 
@@ -30,18 +32,18 @@ class SimpleOptimizer implements Optimizer {
 }
 
 const main = async () => {
-  const llm = new ChatOpenAI({
-    modelName: 'gpt-3.5-turbo',
-    maxTokens: 256,
-    callbacks: [{
-      handleLLMStart: (_, [prompt]) => {
-        console.log('prompt', prompt)
-      },
-      handleLLMEnd: ({ generations }) => {
-        console.log('generations', generations)
-      }
-    }]
-  });
+  // const llm = new ChatOpenAI({
+  //   modelName: 'gpt-3.5-turbo',
+  //   maxTokens: 32,
+  //   callbacks: [{
+  //     handleLLMStart: (_, [prompt]) => {
+  //       console.log('prompt', prompt)
+  //     },
+  //     handleLLMEnd: ({ generations }) => {
+  //       console.log('generations', generations)
+  //     }
+  //   }]
+  // });
 
   // const llm = new Ollama({
   //   baseUrl: 'http://localhost:11434',
@@ -57,28 +59,29 @@ const main = async () => {
   //   }]
   // });
 
-  // const llm = new ChatFireworks({
-  //   // modelName: 'accounts/fireworks/models/mixtral-8x7b-instruct',
-  //   // modelName: 'accounts/fireworks/models/mistral-7b-instruct-4k', // Does not understand special characters
-  //   modelName: 'accounts/fireworks/models/llama-v3-8b-instruct', // Does not understand special characters
-  //   temperature: 0.7,
-  //   callbacks: [{
-  //     handleLLMStart: (_, prompt) => {
-  //       console.log('prompt', prompt)
-  //     },
-  //     handleLLMEnd: ({ generations }) => {
-  //       console.log('generations', generations)
-  //     }
-  //   }]
-  // })
+  const llm = new ChatFireworks({
+    // modelName: 'accounts/fireworks/models/mixtral-8x7b-instruct',
+    temperature: 0.7,
+    maxRetries: 0,
+    maxTokens: 32,
+    callbacks: [{
+      handleLLMStart: (_, prompt) => {
+        console.log('prompt', prompt)
+      },
+      handleLLMEnd: ({ generations }) => {
+        console.log('generations', generations)
+      }
+    }]
+  })
   // const llm = new ChatGroq({
   //   // modelName: 'gemma-7b-it', // Does not understand special characters
+  //   maxTokens: 32,
   //   callbacks: [{
   //     handleLLMStart: (_, prompt) => {
   //       console.log('prompt', prompt)
   //     },
-  //     handleLLMEnd: ({ generations }) => {
-  //       console.log('generations', generations)
+  //     handleLLMEnd: (info) => {
+  //       console.log('generations', info)
   //     }
   //   }]
   // })
@@ -90,9 +93,7 @@ const main = async () => {
     description: '',
     llm,
     isChatModel: true,
-    // logger: createLogger({
-    //   transports: [new transports.Console({ level: 'debug' })]
-    // }),
+    // logger: console as unknown as ,
     objective: dedent`
       1. Help the user with math.
       2. Use actions for calculations.
@@ -103,6 +104,7 @@ const main = async () => {
       5. Finish the exercise once user say "Thank you!" with the latest result. no other actions is possible finishing the exercise
       **Always start with friendly introduction**
     `.trim(),
+    maxRetries: 3,
     typeDefs: dedent /* GraphQL */ `
       schema {
         query: Query
@@ -112,6 +114,7 @@ const main = async () => {
         currentTime: CurrentTimeResult
         """
         Relay information to the user and wait for the reply. Note that this is only way of communicating information to the user.
+
         """
         say(input: SayInput!): SayResult
         add(input: MathInput!): MathResult
@@ -210,9 +213,14 @@ const main = async () => {
     optimizer: new SimpleOptimizer(1000),
   });
 
-  const result = await agent.invoke();
+  try {
+    const result = await agent.invoke();
 
-  console.log(result);
+    console.log(result);
+  } catch (err) {
+    assert(err instanceof AgentRetryError)
+    console.error(err);
+  }
 };
 
 main();
