@@ -99,9 +99,6 @@ export class Agent implements AgentPrams {
       {schema}
       \`\`\`
 
-      **Continue the History with your thoughts and actions following format in your response as shown in the example:**
-      {examples}
-
       {instruction}
     `),
     objective: 'You are helpful assistant.',
@@ -110,7 +107,6 @@ export class Agent implements AgentPrams {
       Always explain your choice in your thoughts.
       Use only actions listed in the Actions section.
       Reject any requests that are not related to your objective and cannot be fulfilled within the given list of actions.
-      Continue history with Thought and Action in response to the Observation.
     `,
     maxRetries: 7,
     isChatModel: false,
@@ -163,7 +159,13 @@ export class Agent implements AgentPrams {
 
     for (let i = 0; i < this.maxRetries; ++i) {
       // Prepare chat messages
-      const history = await this.optimizer.optimize(this.history);
+      let history = [...this.history];
+
+      if (history.length < this.examples.length) {
+        history = [...this.examples, ...history];
+      }
+
+      history = await this.optimizer.optimize(history);
       const messages: BaseMessage[] = [];
       let aiActivities: Activity[] = [];
 
@@ -300,6 +302,22 @@ export class Agent implements AgentPrams {
     if (!this.history.length) {
       throw new Error('History must not be empty.');
     }
+
+    this.history.slice(0, -1).forEach((activity, index) => {
+      const next = this.history[index + 1];
+
+      if (activity.kind === ActivityKind.Observation && next.kind !== ActivityKind.Thought) {
+        throw new Error(`Observation at index ${index} must be followed by Thought`);
+      }
+
+      if (activity.kind === ActivityKind.Thought && next.kind !== ActivityKind.Action) {
+        throw new Error(`Thought at index ${index} must be followed by Action`);
+      }
+
+      if (activity.kind === ActivityKind.Action && next.kind !== ActivityKind.Observation) {
+        throw new Error(`Action at index ${index} must be followed by Observation`);
+      }
+    });
 
     if (this.history.at(-1)?.kind !== ActivityKind.Observation) {
       throw new Error('Latest experience must be of Observation kind');

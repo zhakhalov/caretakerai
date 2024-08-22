@@ -59,32 +59,32 @@ const main = async () => {
   //   }]
   // });
 
-  const llm = new ChatFireworks({
-    // modelName: 'accounts/fireworks/models/mixtral-8x7b-instruct',
-    temperature: 0.7,
-    maxRetries: 0,
-    maxTokens: 32,
-    callbacks: [{
-      handleLLMStart: (_, prompt) => {
-        console.log('prompt', prompt)
-      },
-      handleLLMEnd: ({ generations }) => {
-        console.log('generations', generations)
-      }
-    }]
-  })
-  // const llm = new ChatGroq({
-  //   // modelName: 'gemma-7b-it', // Does not understand special characters
-  //   maxTokens: 32,
+  // const llm = new ChatFireworks({
+  //   // modelName: 'accounts/fireworks/models/mixtral-8x7b-instruct',
+  //   temperature: 0.7,
+  //   maxRetries: 0,
+  //   maxTokens: 256,
   //   callbacks: [{
   //     handleLLMStart: (_, prompt) => {
   //       console.log('prompt', prompt)
   //     },
-  //     handleLLMEnd: (info) => {
-  //       console.log('generations', info)
+  //     handleLLMEnd: ({ generations }) => {
+  //       console.log('generations', generations)
   //     }
   //   }]
   // })
+  const llm = new ChatGroq({
+    // modelName: 'gemma-7b-it', // Does not understand special characters
+    maxTokens: 256,
+    callbacks: [{
+      handleLLMStart: (_, prompt) => {
+        console.log('prompt', prompt)
+      },
+      handleLLMEnd: (info) => {
+        console.log('generations', info)
+      }
+    }]
+  })
 
   const controller = new AbortController();
 

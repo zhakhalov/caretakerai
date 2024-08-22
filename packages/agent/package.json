@@ -1,6 +1,6 @@
 {
   "name": "@caretakerai/agent",
-  "version": "0.0.20",
+  "version": "0.0.21-beta.2",
   "description": "Single framework for building text-agents",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -13,8 +13,8 @@
     "build": "rimraf dist tsconfig.tsbuildinfo && tsc",
     "build:watch": "tsc --watch"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Viktor Zhakhalov (zhakhalov@gmail.com)",
+  "license": "Apache-2.0",
   "dependencies": {
     "@langchain/core": "^0.1.63",
     "ajv": "^8.12.0",
