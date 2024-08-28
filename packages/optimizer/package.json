@@ -1,18 +1,24 @@
 {
   "name": "@caretakerai/optimizer",
-  "version": "0.0.3",
+  "version": "0.0.22",
   "description": "",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "rimraf dist tsconfig.tsbuildinfo && tsc",
+    "build:watch": "tsc --watch"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Viktor Zhakhalov (zhakhalov@gmail.com)",
+  "license": "Apache-2.0",
   "dependencies": {
-    "@caretakerai/agent": "^0.0.1"
+    "yaml": "^2.4.0"
   },
   "peerDependencies": {
-    "openai": "^4.12.1",
-    "tiktoken": "^1.0.10"
+    "@caretakerai/agent": "^0.0.20"
   }
 }

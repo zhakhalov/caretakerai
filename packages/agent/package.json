@@ -1,6 +1,6 @@
 {
   "name": "@caretakerai/agent",
-  "version": "0.0.21-beta.2",
+  "version": "0.0.21",
   "description": "Single framework for building text-agents",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

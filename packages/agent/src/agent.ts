@@ -46,8 +46,8 @@ interface AgentPrams {
   maxIterations?: number;
   /** The maximum number of retries for actions. Optional. */
   maxRetries?: number;
-  /** The optimizer used to improve the agent's performance. */
-  optimizer: Optimizer;
+  /** The pipeline of history optimizers used to improve the agent's performance. */
+  optimizers: Optimizer[];
   /** The template for generating prompts for the agent. Optional. */
   signal?: AbortSignal;
   /** The template for generating prompts for the agent. Optional. */
@@ -81,7 +81,7 @@ export class Agent implements AgentPrams {
   maxRetries: number;
   isChatModel: boolean;
   signal: AbortSignal;
-  optimizer!: Optimizer;
+  optimizers!: Optimizer[];
   logger!: Logger;
   template?: PromptTemplate;
   executor?: GraphQLExecutor;
@@ -116,7 +116,7 @@ export class Agent implements AgentPrams {
       new Activity({
         kind: ActivityKind.Observation,
         input: dedent`
-          data
+          data:
             theBestNumber:
               result: 73
         `.trim(),
@@ -157,19 +157,23 @@ export class Agent implements AgentPrams {
     let activities: Activity[] = [];
     const retryErrors = [];
 
+    // Prepare chat messages
+    let history = [...this.history];
+
+    if (history.length < this.examples.length) {
+      history = [...this.examples, ...history];
+    }
+
+    // Apply optimizers
+    for (const opt of this.optimizers) {
+      history = await opt.optimize(history);
+    }
+
     for (let i = 0; i < this.maxRetries; ++i) {
-      // Prepare chat messages
-      let history = [...this.history];
-
-      if (history.length < this.examples.length) {
-        history = [...this.examples, ...history];
-      }
-
-      history = await this.optimizer.optimize(history);
       const messages: BaseMessage[] = [];
       let aiActivities: Activity[] = [];
 
-      history.forEach(activity => {
+      [...history, ...activities].forEach(activity => {
         if (activity.kind === ActivityKind.Observation) {
           // AI generates Thought and Action per messages
           aiActivities.length && messages.push(new AIMessage(aiActivities.map(a => a.prompt()).join(ACTIVITY_SEP)));
@@ -263,20 +267,19 @@ export class Agent implements AgentPrams {
           ? await this.executor(source)
           : await graphql({ schema: this.schema, source });
 
-        // Add new observation to the history
-        this.addActivities(
-          ...activities,
-          new Activity({
-            kind: ActivityKind.Observation,
-            input: stringify(result),
-          }),
-        );
+        // Add new observation to the iteration history
+        activities.push(new Activity({
+          kind: ActivityKind.Observation,
+          input: stringify(result),
+        }))
 
         if (result.errors) {
           retryErrors.push(...result.errors)
           continue;
         }
 
+        // Add iteration activities to the agent history and finish iteration
+        this.addActivities(...activities);
         return;
       } catch (e) {
         const err = e as Error;
@@ -286,8 +289,6 @@ export class Agent implements AgentPrams {
           input: err.toString(),
         }));
 
-        this.addActivities(...activities);
-        activities = [];
         const message = `Retry ${i + 1} due to action error: ${err}`;
         this.logger.debug(message);
         retryErrors.push(err);
@@ -303,6 +304,7 @@ export class Agent implements AgentPrams {
       throw new Error('History must not be empty.');
     }
 
+    // Validate history sequence
     this.history.slice(0, -1).forEach((activity, index) => {
       const next = this.history[index + 1];
 

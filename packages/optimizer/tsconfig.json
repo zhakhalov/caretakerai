@@ -3,7 +3,6 @@
   "compilerOptions": {
     "outDir": "dist",
     "composite": true,
-    "noEmit": true,
     "rootDir": "src"
   },
   "exclude": [
@@ -15,10 +14,7 @@
   ],
   "references": [
     {
-      "path": "../agent"
-    },
-    {
-      "path": "../optimizer"
+      "path": "../agent",
     }
   ]
 }

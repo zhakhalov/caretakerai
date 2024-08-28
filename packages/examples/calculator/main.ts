@@ -3,79 +3,15 @@ import chalk from 'chalk';
 import yaml from 'yaml';
 import inputPrompt from '@inquirer/input';
 import { config } from 'dotenv';
-import { Activity, ActivityKind, Agent, Optimizer } from '@caretaker/agent';
-import { OpenAI, ChatOpenAI } from '@langchain/openai';
-import { ChatFireworks } from '@langchain/community/chat_models/fireworks';
+import { Activity, ActivityKind, Agent, AgentRetryError } from '@caretakerai/agent';
+import { LengthOptimizer, RemoveErrorActivitiesOptimizer } from '@caretakerai/optimizer';
 import { ChatGroq } from '@langchain/groq';
-import { Ollama } from '@langchain/community/llms/ollama';
 import { assert } from 'console';
-import { AgentRetryError } from '@caretaker/agent/dist/agent';
 
 config();
 
-class SimpleOptimizer implements Optimizer {
-  constructor(
-    readonly wordLimit: number
-  ) { }
-
-  async optimize(activities: Activity[]): Promise<Activity[]> {
-    let wordCount = activities.map(act => act.input.split(' ').length).reduce((a, b) => a + b, 0);
-    let optimizedActs = [...activities];
-
-    while (wordCount > this.wordLimit && optimizedActs.length > 0) {
-      const actToRemove = optimizedActs.shift()!;
-      wordCount -= actToRemove.input.split(' ').length;
-    }
-
-    return optimizedActs;
-  }
-}
-
 const main = async () => {
-  // const llm = new ChatOpenAI({
-  //   modelName: 'gpt-3.5-turbo',
-  //   maxTokens: 32,
-  //   callbacks: [{
-  //     handleLLMStart: (_, [prompt]) => {
-  //       console.log('prompt', prompt)
-  //     },
-  //     handleLLMEnd: ({ generations }) => {
-  //       console.log('generations', generations)
-  //     }
-  //   }]
-  // });
-
-  // const llm = new Ollama({
-  //   baseUrl: 'http://localhost:11434',
-  //   model: 'mistral:instruct',
-  //   temperature: 0.7,
-  //   callbacks: [{
-  //     handleLLMStart: (_, [prompt]) => {
-  //       console.log('prompt', prompt)
-  //     },
-  //     handleLLMEnd: ({ generations }) => {
-  //       console.log('generations', generations)
-  //     }
-  //   }]
-  // });
-
-  // const llm = new ChatFireworks({
-  //   // modelName: 'accounts/fireworks/models/mixtral-8x7b-instruct',
-  //   temperature: 0.7,
-  //   maxRetries: 0,
-  //   maxTokens: 256,
-  //   callbacks: [{
-  //     handleLLMStart: (_, prompt) => {
-  //       console.log('prompt', prompt)
-  //     },
-  //     handleLLMEnd: ({ generations }) => {
-  //       console.log('generations', generations)
-  //     }
-  //   }]
-  // })
   const llm = new ChatGroq({
-    // modelName: 'gemma-7b-it', // Does not understand special characters
-    maxTokens: 256,
     callbacks: [{
       handleLLMStart: (_, prompt) => {
         console.log('prompt', prompt)
@@ -210,7 +146,7 @@ const main = async () => {
         }, null, 2)
       })
     ],
-    optimizer: new SimpleOptimizer(1000),
+    optimizers: [new RemoveErrorActivitiesOptimizer(), new LengthOptimizer(16)],
   });
 
   try {

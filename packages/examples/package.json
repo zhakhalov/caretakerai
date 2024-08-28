@@ -10,7 +10,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@caretaker/agent": "*",
+    "@caretakerai/agent": "*",
+    "@caretakerai/optimizer": "*",
     "@inquirer/input": "^1.2.13",
     "@langchain/community": "^0.0.57",
     "@langchain/core": "^0.1.15",

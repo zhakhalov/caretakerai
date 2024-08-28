@@ -1,7 +1,8 @@
 import dedent from 'dedent';
 import pino from 'pino';
 import { config } from 'dotenv';
-import { Activity, ActivityKind, Agent, Optimizer } from '@caretaker/agent';
+import { Activity, ActivityKind, Agent, Optimizer } from '@caretakerai/agent';
+import { RemoveErrorActivitiesOptimizer, LengthOptimizer } from '@caretakerai/optimizer';
 import { ChatOpenAI } from '@langchain/openai';
 import chalk from 'chalk';
 import inputPrompt from '@inquirer/input';
@@ -154,7 +155,7 @@ const main = async () => {
           reply: How can you help me?
       ` })
     ],
-    optimizer: new SimpleOptimizer(3000),
+    optimizers: [new RemoveErrorActivitiesOptimizer(), new LengthOptimizer(16)],
   });
 
   await agent.invoke();
