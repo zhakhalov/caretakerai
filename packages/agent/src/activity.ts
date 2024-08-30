@@ -1,4 +1,3 @@
-import { Element, js2xml, xml2js } from 'xml-js';
 
 /**
  * Enum representing the kinds of activities that an agent can perform.
@@ -32,12 +31,7 @@ export class Activity implements ActivityParams {
   }
 
   prompt() {
-    return js2xml(
-      { [this.kind]: { _attributes: this.attributes ?? {}, _text: `\n${this.input}\n`, } },
-      { compact: true },
-    )
-      .replaceAll('&lt;', '<')
-      .replaceAll('&gt;', '>');
+    return `<${this.kind}>\n${this.input}\n</${this.kind}>`;
   }
 
   toObject() {
@@ -48,21 +42,56 @@ export class Activity implements ActivityParams {
     return new Activity({ kind, input });
   }
 
+  /**
+   * Parse XML-like text structure into array of activities
+   */
   static parse(text: string): Activity[] {
-    const { elements: [root] } = xml2js(`<root>${text}</root>`, { trim: true });
+    // Ignore all possible free text outside activities tags
+    const pattern = new RegExp(`<(${ActivityKind.Thought}|${ActivityKind.Action}|${ActivityKind.Observation})>(.*?)<\\/\\1>`);
+    const match = text.match(new RegExp(pattern, 'gs'));
 
-    return (root.elements as Element[])
-      .map(({ name, attributes, elements }: Element) => {
-        const input = js2xml({ elements: elements.filter(({ type }) => type === 'text' ) })
-          .replaceAll('&lt;', '<')
-          .replaceAll('&gt;', '>');
+    // Validate text for any activities
+    if (!match) {
+      throw new Error(`Could not extract activities from "${text}"`);
+    }
 
-        return Activity.fromObject({
-          kind: name,
-          input: input,
-          attributes: attributes,
+    // Extract activities from match
+    const activities = match.map(str => {
+      const [, kind, input] = str.match(new RegExp(pattern, 's'));
+
+      try {
+        return new Activity({
+          kind: kind as ActivityKind,
+          input: input.trim(),
         });
-      })
-      .filter(a => [ActivityKind.Action, ActivityKind.Observation, ActivityKind.Thought].includes(a?.kind)); // Filter out corrupted activities that do not have a kind
+      } catch (e) {
+        const err = e as Error;
+
+        throw new Error(`Could not extract activity from "${str}": ${err}`);
+      }
+    });
+
+    // Validate generated activities for correct sequence
+    Activity.validateSequence(activities);
+
+    return activities;
+  }
+
+  static validateSequence(activities: Activity[]) {
+    activities.slice(0, -1).forEach((activity, index) => {
+      const next = activities[index + 1];
+
+      if (activity.kind === ActivityKind.Observation && next.kind !== ActivityKind.Thought) {
+        throw new Error(`Observation at index ${index} must be followed by Thought`);
+      }
+
+      if (activity.kind === ActivityKind.Thought && next.kind !== ActivityKind.Action) {
+        throw new Error(`Thought at index ${index} must be followed by Action`);
+      }
+
+      if (activity.kind === ActivityKind.Action && next.kind !== ActivityKind.Observation) {
+        throw new Error(`Action at index ${index} must be followed by Observation`);
+      }
+    });
   }
 }

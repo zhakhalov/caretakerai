@@ -216,29 +216,12 @@ export class Agent implements AgentPrams {
         continue;
       }
 
-      // Strip all possible text that preceding opening of the first Thought
-      [,content] = content.split(`<${ActivityKind.Thought}>`);
-      content = `<${ActivityKind.Thought}>` + content;
-
-      // Strip all possible text that follows first Action closure
-      [content] = content.split(`</${ActivityKind.Action}>`);
-      content = content + `</${ActivityKind.Action}>`;
-
       try {
         let newActivities = Activity.parse(content).slice(0, 2);
 
         if (!newActivities.length) {
           throw new Error('No activities generated!');
         }
-
-        // Error if multiple thoughts are generated
-        if (newActivities.filter(a => a.kind === ActivityKind.Thought).length > 1) {
-          throw new Error('Multiple thoughts generated!');
-        }
-
-        // Forget the Actions from new activities except first one
-        const activityIndex = newActivities.findIndex(a => a.kind === ActivityKind.Action);
-        newActivities = newActivities.slice(0, activityIndex + 1)
 
         activities.push(...newActivities);
       } catch (e) {
@@ -305,21 +288,7 @@ export class Agent implements AgentPrams {
     }
 
     // Validate history sequence
-    this.history.slice(0, -1).forEach((activity, index) => {
-      const next = this.history[index + 1];
-
-      if (activity.kind === ActivityKind.Observation && next.kind !== ActivityKind.Thought) {
-        throw new Error(`Observation at index ${index} must be followed by Thought`);
-      }
-
-      if (activity.kind === ActivityKind.Thought && next.kind !== ActivityKind.Action) {
-        throw new Error(`Thought at index ${index} must be followed by Action`);
-      }
-
-      if (activity.kind === ActivityKind.Action && next.kind !== ActivityKind.Observation) {
-        throw new Error(`Action at index ${index} must be followed by Observation`);
-      }
-    });
+    Activity.validateSequence(this.history);
 
     if (this.history.at(-1)?.kind !== ActivityKind.Observation) {
       throw new Error('Latest experience must be of Observation kind');
