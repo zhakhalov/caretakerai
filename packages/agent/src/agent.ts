@@ -3,7 +3,7 @@ import { stringify } from 'yaml';
 import pino, { Logger } from 'pino';
 
 import { PromptTemplate} from '@langchain/core/prompts';
-import { BaseLanguageModel } from '@langchain/core/language_models/base';
+import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 
 import { makeExecutableSchema } from '@graphql-tools/schema';
 import type { TypeSource, IResolvers } from '@graphql-tools/utils';
@@ -21,11 +21,11 @@ type GraphQLExecutor = (query: string) => Promise<ExecutionResult>;
  */
 interface AgentPrams {
   /** The name of the agent. */
-  name: string;
+  name?: string;
   /** A description of the agent. */
-  description: string;
+  description?: string;
   /** The language model the agent will use. */
-  llm: BaseLanguageModel;
+  llm: BaseChatModel;
   /** Is chat model is used. Used to mitigate Langchain Human prefix in case of interacting with chat model. should be removed in favor of LLM selectors once fixed */
   isChatModel?: boolean;
   /** A GraphQL type definitions document. */
@@ -70,7 +70,7 @@ export class AgentRetryError extends Error {
 export class Agent implements AgentPrams {
   name!: string;
   description!: string;
-  llm!: BaseLanguageModel;
+  llm: BaseChatModel;
   typeDefs!: TypeSource;
   resolvers: IResolvers;
   history!: Activity[];
@@ -90,23 +90,41 @@ export class Agent implements AgentPrams {
 
   static defaults: Partial<AgentPrams> = {
     template: PromptTemplate.fromTemplate(dedent`
-      # Objective
+      <Objective>
       {objective}
+      </Objective>
 
-      # GraphQL Schema
-      The only permissible actions you may take are listed below:
-      \`\`\`graphql
+      <GraphQLSchema>
       {schema}
-      \`\`\`
+      </GraphQLSchema>
 
+      <Instructions>
       {instruction}
+      </Instructions>
     `),
     objective: 'You are helpful assistant.',
     instruction: dedent`
-      Plan your further actions step by step before taking any.
-      Always explain your choice in your thoughts.
-      Use only actions listed in the Actions section.
-      Reject any requests that are not related to your objective and cannot be fulfilled within the given list of actions.
+      **WARNING: FAILURE TO FOLLOW THE BELOW INSTRUCTIONS WILL RESULT IN INVALID RESPONSES**
+
+      1. Always plan your action step by step before executing them.
+      2. Generate reasoning as follows:
+        - Wrap your thoughts into XML tag to let the following software parse it properly as following: <Thought>your thoughts</Thought>
+        - First, reflect on the current state and previous <Observation>
+        - Then list the remaining steps to accomplish the <Objective>
+        - Finally, explain your next step.
+      3. Generate <Action> tag immediately after <Thought> as follows:
+        - Wrap your action into XML tag to let the following software parse it properly as following: <Action>your action</Action>
+        - Action content must be a single GraphQL operation
+        - Action content must not be wrapped in any tags
+        - Action content must valid against <GraphQLSchema>
+      4. Only use explicitly defined operations in the <GraphQLSchema>.
+      5. If a request:
+        - Falls outside your objective scope
+        - Cannot be fulfilled using the available operations
+        - Violates any constraints
+        Then explain why in your thoughts and politely decline the request.
+
+      **COMPLETE YOUR <Thought> AND <Action> IN A SINGLE MESSAGE**
     `,
     maxRetries: 7,
     isChatModel: false,
@@ -217,7 +235,7 @@ export class Agent implements AgentPrams {
       }
 
       try {
-        let newActivities = Activity.parse(content).slice(0, 2);
+        let newActivities = Activity.parse(content as string).slice(0, 2);
 
         if (!newActivities.length) {
           throw new Error('No activities generated!');

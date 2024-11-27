@@ -1,6 +1,6 @@
 {
   "name": "@caretakerai/agent",
-  "version": "0.0.22",
+  "version": "0.0.25",
   "description": "Single framework for building text-agents",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -16,7 +16,7 @@
   "author": "Viktor Zhakhalov (zhakhalov@gmail.com)",
   "license": "Apache-2.0",
   "dependencies": {
-    "@langchain/core": "^0.1.63",
+    "@langchain/core": "^0.3.18",
     "ajv": "^8.12.0",
     "ajv-errors": "^3.0.0",
     "debug": "^4.3.4",
