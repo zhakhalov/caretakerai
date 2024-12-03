@@ -3,7 +3,7 @@ import { stringify } from 'yaml';
 import pino, { Logger } from 'pino';
 
 import { PromptTemplate} from '@langchain/core/prompts';
-import { BaseChatModel } from '@langchain/core/language_models/chat_models';
+import { BaseLanguageModel } from '@langchain/core/language_models/base';
 
 import { makeExecutableSchema } from '@graphql-tools/schema';
 import type { TypeSource, IResolvers } from '@graphql-tools/utils';
@@ -25,7 +25,7 @@ interface AgentPrams {
   /** A description of the agent. */
   description?: string;
   /** The language model the agent will use. */
-  llm: BaseChatModel;
+  llm: BaseLanguageModel;
   /** Is chat model is used. Used to mitigate Langchain Human prefix in case of interacting with chat model. should be removed in favor of LLM selectors once fixed */
   isChatModel?: boolean;
   /** A GraphQL type definitions document. */
@@ -70,7 +70,7 @@ export class AgentRetryError extends Error {
 export class Agent implements AgentPrams {
   name!: string;
   description!: string;
-  llm: BaseChatModel;
+  llm: BaseLanguageModel;
   typeDefs!: TypeSource;
   resolvers: IResolvers;
   history!: Activity[];
@@ -141,13 +141,19 @@ export class Agent implements AgentPrams {
       }),
       new Activity({
         kind: ActivityKind.Thought,
-        input: 'Now I know that the best number is 73. I should share this information with the user immediately.',
+        input: dedent`
+          Based on the observation, I have received information that 73 is the best number.
+
+          Remaining steps:
+          1. Share this information with the user
+
+          For my next step, I will use the say mutation to communicate this finding to the user in a clear and direct way.`,
       }),
       new Activity({
         kind: ActivityKind.Action,
         input: dedent`
-          query {
-            say(input: { message: "The best number is 73!" }) {
+          mutation {
+            say(message: "The best number is 73!") {
               reply
             }
           }
@@ -178,7 +184,7 @@ export class Agent implements AgentPrams {
     // Prepare chat messages
     let history = [...this.history];
 
-    if (history.length < this.examples.length) {
+    if (history.length <= this.examples.length) {
       history = [...this.examples, ...history];
     }
 

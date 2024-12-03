@@ -2,7 +2,6 @@ import chalk from 'chalk';
 import yaml from 'yaml';
 import { config } from 'dotenv';
 import inputPrompt from '@inquirer/input';
-import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { ChatOpenAI } from '@langchain/openai';
 import { Activity, ActivityKind, Agent } from '@caretakerai/agent';
 import { LengthOptimizer, RemoveErrorActivitiesOptimizer } from '@caretakerai/optimizer';
@@ -101,15 +100,16 @@ type UserResponse {
 `.trim();
 
 // Configure LLM model
-import { BaseLanguageModel } from '@langchain/core/language_models/base';
-
-const llm: BaseLanguageModel = new ChatOpenAI({
+const llm = new ChatOpenAI({
   model: 'gpt-4o-mini',
+  callbacks: [{ handleLLMStart: (_, [prompt]) => {
+    console.log(prompt)
+  } }]
 });
 
 // Configure agentic application
 const agent = new Agent({
-  llm: llm, // Language model instance for processing queries
+  llm, // Language model instance for processing queries
   objective, // Define agent's behavior and responsibilities (from objective string above)
   maxRetries: 3, // Number of retry attempts for failed operations or LLM completions
   typeDefs, // GraphQL schema defining available operations
@@ -117,7 +117,6 @@ const agent = new Agent({
     new RemoveErrorActivitiesOptimizer(), // Forget interactions that resulted in syntax or execution errors
     new LengthOptimizer(16), // Limit interaction history to 16 activities
   ],
-
   // Initialize conversation greeting the agent
   history: [
     new Activity({
@@ -161,4 +160,8 @@ const agent = new Agent({
 });
 
 // Start application
-(async () => { await agent.invoke(); })();
+async function main() {
+  await agent.invoke();
+}
+
+main();
