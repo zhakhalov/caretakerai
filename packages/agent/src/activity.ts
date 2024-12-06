@@ -56,7 +56,7 @@ export class Activity implements ActivityParams {
     }
 
     // Extract activities from match
-    const activities = match.map(str => {
+    let activities = match.map(str => {
       const [, kind, input] = str.match(new RegExp(pattern, 's'));
 
       try {
@@ -71,8 +71,8 @@ export class Activity implements ActivityParams {
       }
     });
 
-    // Validate generated activities for correct sequence
-    Activity.validateSequence(activities);
+    // Remove activities once sequence of Observation -> Thought -> Action is broken
+    Activity.filterSequence(activities);
 
     return activities;
   }
@@ -93,5 +93,32 @@ export class Activity implements ActivityParams {
         throw new Error(`Action at index ${index} must be followed by Observation`);
       }
     });
+  }
+
+  static filterSequence(activities: Activity[]): Activity[] {
+    if (activities.length === 0) return activities;
+
+    const result: Activity[] = [activities[0]];
+
+    for (let i = 1; i < activities.length; i++) {
+      const current = activities[i];
+      const prev = result[result.length - 1];
+
+      if (prev.kind === ActivityKind.Observation && current.kind !== ActivityKind.Thought) {
+        break;
+      }
+
+      if (prev.kind === ActivityKind.Thought && current.kind !== ActivityKind.Action) {
+        break;
+      }
+
+      if (prev.kind === ActivityKind.Action && current.kind !== ActivityKind.Observation) {
+        break;
+      }
+
+      result.push(current);
+    }
+
+    return result;
   }
 }
