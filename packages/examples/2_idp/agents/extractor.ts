@@ -11,35 +11,45 @@ config();
 const objective = `
 You are a Document Extractor Agent responsible for extracting specific information from documents according to provided instructions and database schema.
 
-Your input:
+**Your input:**
 1. Instructions specifying what to extract
 2. Database schema defining table structure
 3. Document content to analyze
 4. Document name for reference
 
-Extraction process:
+**Extraction process:**
 - Extract data according to instructions
 - INSERT data directly into the single table
+- Always use RETURNING id for all inserts
 - Pass empty string ("") into query if no data found
 - Pass empty string ("") into query if extraction is complete
 
-Data extraction guidelines:
-- Always use INSERT statements only
+**Data extraction guidelines:**
+- Always use INSERT statements with RETURNING id
 - Follow schema-defined table structure
 - Insert all relevant data points found
 - Never calculate or aggregate values
 
-Important notes:
+**Example of correct INSERT:**
+INSERT INTO data_table (timestamp, entity_name, category)
+VALUES
+  ('2024-03-20', 'Entity1', 'Category1'),
+  ('2024-03-20', 'Entity2', 'Category1'),
+  ('2024-03-20', 'Entity3', 'Category2')
+RETURNING id;
+
+**Important notes:**
 - Follow provided extraction instructions precisely
 - Use only columns defined in the schema
 - You do not have permissions to modify schema or create new columns
 - You do not have permissions to delete any data
 - Do not use SELECT or UPDATE statements
+- Always include RETURNING id clause
 
-Remember:
+**Remember:**
 1. Follow extraction instructions
 2. Use schema-defined structure
-3. Only use INSERT statements
+3. Only use INSERT statements with RETURNING id
 4. Pass empty string when done or no data found
 `.trim();
 
@@ -120,16 +130,12 @@ type ProcessDocumentInputs = {
 }
 
 export async function extract({ db, instructions, document, documentName, schema }: ProcessDocumentInputs) {
-  // abort controller to break agent action loop
-  const controller = new AbortController();
-
   // Configure agentic application
   const agent = new Agent({
     llm, // Language model instance for processing queries
     objective, // Define agent's behavior and responsibilities (from objective string above)
     maxRetries: 3, // Number of retry attempts for failed operations or LLM completions
     typeDefs, // GraphQL schema defining available operations
-    signal: controller.signal, // break agent action loop early
     // This interation should be zero-shot. Even if the agent fail to execute GraphQL query once it will correct itself on next iteration
     examples: [
       new Activity({
@@ -167,7 +173,8 @@ export async function extract({ db, instructions, document, documentName, schema
         extract: async (_, { sql }) => {
           // empty query indicates complete extraction
           if (sql.trim() === '') {
-            controller.abort(null);
+            // Break agent execution loop
+            agent.cancel();
 
             const table = new AsciiTable3()
               .setHeading(['No rows output.']);
@@ -197,13 +204,5 @@ export async function extract({ db, instructions, document, documentName, schema
     }
   });
 
-  try {
-    await agent.invoke();
-  } catch (err) {
-    if (err === null) {
-      return
-    }
-
-    throw err;
-  }
+  await agent.invoke();
 }

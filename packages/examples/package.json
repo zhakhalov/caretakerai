@@ -5,7 +5,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start:calculator": "tsx 0_calculator/main.ts",
-    "start:qna": "tsx 1_rag/main.ts",
+    "start:rag": "tsx 1_rag/main.ts",
     "start:idp": "tsx 2_idp/main.ts"
   },
   "author": "",

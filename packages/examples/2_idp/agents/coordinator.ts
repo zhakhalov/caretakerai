@@ -16,7 +16,7 @@ import { extract } from './extractor';
 const objective = `
 You are a Document Analysis Coordinator Agent responsible for orchestrating the analysis of documents and answering questions about the analyzed data.
 
-Your workflow:
+**Your workflow:**
 1. For any question about data:
   - Check if you have previously created a database for this type of information
   - If no relevant database exists:
@@ -27,13 +27,25 @@ Your workflow:
 2. When creating new databases:
   - Design a single comprehensive table that includes all data points
   - Include all attributes, measurements, and timestamps in the same table
-  - Example structure:
+  - ALWAYS document each column with clear comments to guide data extraction
+  - Comments should explain the purpose and expected content of each field
+    - Example structure:
     * data_table (
+        -- Unique identifier for each record. Auto-incrementing number --
         id INTEGER PRIMARY KEY,
+        -- ISO timestamp when the data point was recorded (YYYY-MM-DD HH:MM:SS) --
         timestamp DATE,
+        -- Full name or identifier of the entity this record describes --
         entity_name TEXT,
+        -- Main classification or type of the entity (e.g., department, product type) --
         category TEXT,
+        -- Primary numeric value being recorded. Include units when relevant --
         measurement REAL,
+        -- Detailed explanation or notes about this specific record --
+        description TEXT,
+        -- Where this data came from (e.g., document name, system name) --
+        source TEXT,
+        -- Add additional columns as needed, always with detailed comments --
         ... other relevant columns
       )
 
@@ -48,7 +60,7 @@ Your workflow:
   - Consider variations in naming and terminology
   - Always explain query approach in thoughts
 
-Important guidelines:
+**Important guidelines:**
 - Only query databases you have explicitly created and tracked
 - Store all related information in a single table
 - Include all necessary columns in the main table
@@ -56,7 +68,7 @@ Important guidelines:
 - Maintain clear documentation of created schemas
 - Never skip the data extraction step
 
-Remember: The workflow must always be:
+**Remember: The workflow must always be:**
 1. Create single-table database (if needed)
 2. Extract data from documents
 3. Only then query the populated database
@@ -83,6 +95,7 @@ type Query {
 }
 
 type Mutation {
+
   """
   Sends a message to the user and waits for their response
   """
@@ -99,33 +112,29 @@ type Mutation {
 
     """
     Defines a new SQLite database schema. Follow these rules:
-    1. Entity tables should only contain stable attributes
-    2. Never include calculated fields or aggregates in entity tables
-    3. Store measurements, events, or transactions in separate record tables
-    4. Use foreign keys to link records to their entities
+    1. Design a single comprehensive table that includes all data points
+    2. Include all attributes, measurements, and timestamps in the same table
+    3. Store denormalized data - duplication is preferred over table joins
+    4. Document each column with clear comments
 
-    Example of good design:
-    -- Entity table
-    CREATE TABLE entities (
+    Example structure:
+    * data_table (
+      -- Unique identifier for each record --
       id INTEGER PRIMARY KEY,
-      name TEXT NOT NULL,
-      category TEXT
-    );
-
-    -- Records table
-    CREATE TABLE records (
-      id INTEGER PRIMARY KEY,
-      entity_id INTEGER,
+      -- When the data was recorded --
       timestamp DATE,
+      -- Name of the entity being described --
+      entity_name TEXT,
+      -- Classification or grouping --
+      category TEXT,
+      -- Numeric measurement value --
       measurement REAL,
-      FOREIGN KEY (entity_id) REFERENCES entities(id)
-    );
-
-    Example of bad design (avoid):
-    CREATE TABLE entities (
-      id INTEGER PRIMARY KEY,
-      name TEXT NOT NULL
-    );
+      -- Detailed description of the record --
+      description TEXT,
+      -- Origin of the data --
+      source TEXT,
+      ... other relevant columns
+    )
 
     IMPORTANT: this field must be wrapped in triple double-quotes
     """
@@ -137,7 +146,8 @@ type Mutation {
   The agent will:
   1. Extract information according to the provided instructions
   2. Insert relevant data into the database if found
-  3. Return true if processing completed (regardless of whether data was found)
+  3. Return inserted record IDs for tracking and reference
+  4. Process each document independently
 
   The extractor agent receives:
   - Database instance for data insertion
@@ -145,6 +155,11 @@ type Mutation {
   - Instructions for what to extract
   - Document content to analyze
   - Document name for reference
+
+  Returns:
+  - Array of inserted record IDs
+  - Empty array if no data was found
+  - Maintains independent processing of each document
   """
   extract(
     """

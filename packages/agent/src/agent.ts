@@ -172,9 +172,15 @@ export class Agent implements AgentPrams {
     }
   }
 
-  addActivities(...activities: Activity[]) {
+  private addActivities(...activities: Activity[]) {
     activities.forEach(a => this.logger.debug(a));
     this.history.push(...activities)
+  }
+
+  cancel(reason?: any) {
+    const controller = new AbortController();
+    this.signal = controller.signal;
+    controller.abort(reason);
   }
 
   async prompt(params?: Record<string, string>) {
@@ -320,7 +326,14 @@ export class Agent implements AgentPrams {
 
     for (let i = 0; i < this.maxIterations; ++i) {
       await this.prompt(params);
-      this.signal?.throwIfAborted();
+
+      if (this.signal?.aborted) {
+        if (typeof this.signal?.reason === 'undefined') {
+          throw this.signal?.reason;
+        }
+
+        return;
+      }
     }
 
     throw new Error('Max number of iterations reached.');
