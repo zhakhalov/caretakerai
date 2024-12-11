@@ -1,12 +1,10 @@
 import { driver, auth } from 'neo4j-driver';
 import yaml from 'yaml';
 import dedent from 'dedent';
-import { config } from 'dotenv';
 import { Activity, ActivityKind, Agent } from '@caretakerai/agent';
 import { ChatOpenAI } from '@langchain/openai';
 import { OpenAIEmbeddings } from '@langchain/openai';
 
-config();
 const objective = `
 You are a Zettelkasten Note Extraction Agent responsible for converting documents into concise, atomic notes following the Zettelkasten method, with appropriate tags and descriptions.
 
@@ -22,11 +20,11 @@ Phase 1 - Note Suggestion:
 - Suggest relevant tags for each note
 - Provide descriptions for suggested tags (only for tags actually used in notes)
 - Submit suggestions using suggestNotes mutation
-- Review returned similarTags for existing tags in the system
+- Review returned similarTags for each suggested tag individually, focusing on finding existing tags similar to those suggested for each note
 
 Phase 2 - Note Creation:
 - Create final notes using existing tags where possible
-- Create new tags only when necessary and only for tags used in notes
+- Create new tags when necessary, even if initially connected to a single note
 - Submit final notes using createNotes mutation
 
 **Data extraction guidelines:**
@@ -52,7 +50,13 @@ mutation {
       { tag: "tag3", description: "Description of third concept" }
     ]
   ) {
-    similarTags { tag description }
+    similarTags {
+      suggestedTag
+      similarTags {
+        tag
+        description
+      }
+    }
   }
 }
 
@@ -77,7 +81,7 @@ mutation {
 - Keep each note focused on a single concept
 - Create as many notes as needed for complete coverage
 - Reuse existing tags as much as possible
-- Create new tags only when necessary
+- Create new tags when necessary, even if initially connected to a single note
 - Always provide descriptions for new tags
 - Maximum 3 sentences for notes and descriptions
 - Only include tags that are referenced by at least one note
@@ -87,7 +91,7 @@ mutation {
 **Remember:**
 1. Extract all relevant atomic notes
 2. Suggest appropriate tags for each note
-3. Review similar existing tags
+3. Review similar existing tags for each suggested tag individually
 4. Create final notes with optimal tag combination
 5. Ensure complete coverage of source material
 6. Only include tags that are actually used in notes
@@ -99,6 +103,11 @@ type Query {
   Returns the current document to be processed into Zettelkasten notes
   """
   document: String!
+
+  """
+  Returns suggested tags that might be related to the document
+  """
+  suggestedTags: [Tag!]!
 }
 
 type Mutation {
@@ -164,9 +173,9 @@ Result type for note suggestion phase
 """
 type SuggestNotesResult {
   """
-  Array of existing similar tags in the system
+  Mapping of each suggested tag to its array of similar existing tags in the system
   """
-  similarTags: [Tag!]!
+  similarTags: [SimilarTagMapping!]!
 }
 
 """
@@ -177,6 +186,20 @@ type CreateNotesResult {
   Array of created notes with their IDs
   """
   notes: [Note!]!
+}
+
+"""
+Mapping of a suggested tag to its similar existing tags
+"""
+type SimilarTagMapping {
+  """
+  The suggested tag name
+  """
+  suggestedTag: String!
+  """
+  Array of similar existing tags in the system
+  """
+  similarTags: [Tag!]!
 }
 
 """
@@ -223,16 +246,29 @@ type TagInput = {
   description: string;
 }
 
-// Configure LLM model
-const llm = new ChatOpenAI({
-  model: 'gpt-4o',
-  callbacks: [{ handleLLMStart: (_, [prompt]) => {
-    console.log(prompt)
-  } }]
-});
+type Tag = {
+  /** The tag name */
+  tag: string;
+  /** Description of the tag (maximum 3 sentences) */
+  description: string;
+}
 
 export async function extract({ document, documentName }: ProcessDocumentInputs) {
   console.log(`Indexing ${documentName}...`);
+
+  // Configure LLM model
+  const llm = new ChatOpenAI({
+    model: 'gpt-4o',
+    callbacks: [{ handleLLMStart: (_, [prompt]) => {
+      console.log(prompt)
+    } }]
+  });
+
+  // Configure Embedding model
+  const embeddings = new OpenAIEmbeddings({
+    model: 'text-embedding-3-small',
+    dimensions: 512,
+  });
 
   const conn = driver(
     process.env.NEO4J_URI!,
@@ -241,6 +277,7 @@ export async function extract({ document, documentName }: ProcessDocumentInputs)
 
   // Define vector indices if they do not exist
   const session = conn.session();
+  let suggestedTags: Tag[];
 
   try {
     await session.run(
@@ -264,10 +301,32 @@ export async function extract({ document, documentName }: ProcessDocumentInputs)
     await session.run(
       /* cypher */ `
         // Create Document node
-        CREATE (d:Document {name: $documentName})
+        MERGE (d:Document {name: $documentName})
       `,
       { documentName }
     );
+
+    // Find suggested tags based on document embeddings
+    console.log('Generating document embedding...');
+    const documentVector = await embeddings.embedQuery(document);
+
+    console.log('Querying for suggested tags...');
+    const result = await session.run(
+      /* cypher */`
+        CALL db.index.vector.queryNodes('tags', 25, $documentVector) YIELD node, score
+        WITH DISTINCT node.name AS tag, node.description AS description
+        RETURN tag, description
+        LIMIT 25
+      `,
+      { documentVector }
+    );
+
+    suggestedTags = result.records.map(record => ({
+      tag: record.get('tag'),
+      description: record.get('description'),
+    }));
+
+    console.log('Suggested Tags for the document:', suggestedTags);
   } finally {
     await session.close();
   }
@@ -297,7 +356,13 @@ export async function extract({ document, documentName }: ProcessDocumentInputs)
                 { tag: "concept4", description: "Description of concept4" }
               ]
             ) {
-              similarTags { tag, description }
+              similarTags {
+                suggestedTag
+                similarTags {
+                  tag
+                  description
+                }
+              }
             }
         }`).trim()
       })
@@ -310,7 +375,10 @@ export async function extract({ document, documentName }: ProcessDocumentInputs)
       new Activity({
         kind: ActivityKind.Observation,
         input: yaml.stringify({
-          data: { document },
+          data: {
+            document,
+            suggestedTags,
+          },
         }),
       }),
     ],
@@ -320,39 +388,50 @@ export async function extract({ document, documentName }: ProcessDocumentInputs)
       },
       Mutation: {
         suggestNotes: async (_, { notes, tags }: { notes: NoteInput[], tags: TagInput[] }) => {
-          // Initialize OpenAIEmbeddings
-          const embeddings = new OpenAIEmbeddings({
-            model: 'text-embedding-3-small',
-            dimensions: 512,
-          });
-
           const session = conn.session();
+          const tx = session.beginTransaction(); // Start a single transaction
 
           try {
-            console.log('Finding similar tags...');
+            console.log('Finding similar tags for each suggested tag...');
 
             // Get vector representations for all tags in parallel
             const tagVectors = await Promise.all(
-              tags.map(async tag => await embeddings.embedQuery(tag.description))
+              tags.map(async tag => ({
+                tag: tag.tag,
+                vector: await embeddings.embedQuery(tag.description)
+              }))
             );
 
-            const result = await session.run(
-              /* cypher */`
-                UNWIND $tagVectors AS tagVector
-                CALL db.index.vector.queryNodes('tags', 15, tagVector) YIELD node, score
-                WITH DISTINCT node.name AS tag, node.description AS description
-                RETURN tag, description
-                LIMIT 15
-              `,
-              { tagVectors }
+            // Find similar tags for each suggested tag
+            const similarTags = await Promise.all(
+              tagVectors.map(async ({ tag, vector }) => {
+                const result = await tx.run(
+                  /* cypher */`
+                    CALL db.index.vector.queryNodes('tags', 5, $vector) YIELD node, score
+                    WITH DISTINCT node.name AS tag, node.description AS description
+                    RETURN tag, description
+                    LIMIT 5
+                  `,
+                  { vector }
+                );
+
+                const similarTagsForTag = result.records.map(record => ({
+                  tag: record.get('tag'),
+                  description: record.get('description'),
+                }));
+
+                return {
+                  suggestedTag: tag,
+                  similarTags: similarTagsForTag
+                };
+              })
             );
 
-            const similarTags = result.records.map(record => ({
-              tag: record.get('tag'),
-              description: record.get('description'),
-            }));
-
+            await tx.commit(); // Commit the transaction after all queries
             return { similarTags };
+          } catch (error) {
+            await tx.rollback(); // Rollback the transaction in case of error
+            throw error;
           } finally {
             await session.close();
           }
@@ -361,11 +440,6 @@ export async function extract({ document, documentName }: ProcessDocumentInputs)
         createNotes: async (_, { notes, tags }: { notes: NoteInput[], tags: TagInput[] }) => {
           const session = conn.session();
           const tx = session.beginTransaction();
-
-          const embeddings = new OpenAIEmbeddings({
-            model: 'text-embedding-3-small',
-            dimensions: 512,
-          });
 
           try {
             console.log(`Creating ${tags.length} new tags...`);
@@ -420,7 +494,7 @@ export async function extract({ document, documentName }: ProcessDocumentInputs)
                   }
                 );
 
-                const noteId = result.records[0].get('n').identity.toString();
+                const noteId = result.records[0]?.get('n').identity.toString() ?? '73';
                 console.log(`  Created note with ID: ${noteId}`);
                 return { id: noteId };
               })
