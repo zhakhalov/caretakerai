@@ -6,7 +6,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start:calculator": "tsx 0_calculator/main.ts",
     "start:rag": "tsx 1_rag/main.ts",
-    "start:idp": "tsx 2_idp/main.ts"
+    "start:idp": "tsx 2_idp/main.ts",
+    "start:index": "tsx 3_zettelkasten/main.ts"
   },
   "author": "",
   "license": "ISC",
@@ -27,6 +28,7 @@
     "langchain": "^0.3.6",
     "ml-distance": "^4.0.1",
     "natural": "^6.7.2",
+    "neo4j-driver": "^5.27.0",
     "pdf-parse": "^1.1.1",
     "pino": "^9.0.0",
     "sqlite": "^5.1.1",
