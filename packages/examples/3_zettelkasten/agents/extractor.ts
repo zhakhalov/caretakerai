@@ -1,7 +1,9 @@
+import { sep } from 'path';
 import { driver, auth } from 'neo4j-driver';
 import yaml from 'yaml';
 import dedent from 'dedent';
 import { Activity, ActivityKind, Agent } from '@caretakerai/agent';
+import { Document } from '@langchain/core/documents';
 import { ChatOpenAI } from '@langchain/openai';
 import { OpenAIEmbeddings } from '@langchain/openai';
 
@@ -227,11 +229,6 @@ type Note {
 }
 `.trim();
 
-type ProcessDocumentInputs = {
-  document: string,
-  documentName: string,
-}
-
 type NoteInput = {
   /** The note content (maximum 3 sentences) */
   note: string;
@@ -253,10 +250,11 @@ type Tag = {
   description: string;
 }
 
-export async function extract({ document, documentName }: ProcessDocumentInputs) {
+export async function extract({ pageContent, metadata }: Document) {
+  const documentName = metadata.source.split(sep).at(-1);
+
   console.log(`Indexing ${documentName}...`);
 
-  // Configure LLM model
   const llm = new ChatOpenAI({
     model: 'gpt-4o',
     callbacks: [{ handleLLMStart: (_, [prompt]) => {
@@ -264,7 +262,6 @@ export async function extract({ document, documentName }: ProcessDocumentInputs)
     } }]
   });
 
-  // Configure Embedding model
   const embeddings = new OpenAIEmbeddings({
     model: 'text-embedding-3-small',
     dimensions: 512,
@@ -275,41 +272,42 @@ export async function extract({ document, documentName }: ProcessDocumentInputs)
     auth.basic(process.env.NEO4J_USERNAME!, process.env.NEO4J_PASSWORD!),
   );
 
-  // Define vector indices if they do not exist
   const session = conn.session();
   let suggestedTags: Tag[];
 
   try {
+    // Create Document and Passage nodes
     await session.run(
       /* cypher */ `
-        // Create vector index for Tag nodes if it does not exist
-        CREATE VECTOR INDEX tags IF NOT EXISTS
-        FOR (t:Tag) ON (t.embedding)
-        OPTIONS {indexConfig: { \`vector.dimensions\`: 512, \`vector.similarity_function\`: 'COSINE' }}
-      `
-    );
-
-    await session.run(
-      /* cypher */ `
-        // Create vector index for Note nodes if it does not exist
-        CREATE VECTOR INDEX notes IF NOT EXISTS
-        FOR (n:Note) ON (n.embedding)
-        OPTIONS {indexConfig: { \`vector.dimensions\`: 512, \`vector.similarity_function\`: 'COSINE' }}
-      `
-    );
-
-    await session.run(
-      /* cypher */ `
-        // Create Document node
         MERGE (d:Document {name: $documentName})
       `,
       { documentName }
     );
 
-    // Find suggested tags based on document embeddings
-    console.log('Generating document embedding...');
-    const documentVector = await embeddings.embedQuery(document);
+    console.log('Creating passage with embedding...');
+    const passageEmbedding = await embeddings.embedQuery(pageContent);
+    await session.run(
+      /* cypher */ `
+      CREATE (p:Passage {
+        content: $content,
+        embedding: $embedding,
+        lineStart: $lineStart,
+        lineEnd: $lineEnd
+      })
+      WITH p
+      MATCH (d:Document {name: $documentName})
+      CREATE (p)-[:PART_OF]->(d)
+      `,
+      {
+        content: pageContent,
+        embedding: passageEmbedding,
+        documentName,
+        lineStart: metadata.loc?.lines?.from,
+        lineEnd: metadata.loc?.lines?.to,
+      }
+    );
 
+    // Find suggested tags based on passage embeddings
     console.log('Querying for suggested tags...');
     const result = await session.run(
       /* cypher */`
@@ -318,7 +316,7 @@ export async function extract({ document, documentName }: ProcessDocumentInputs)
         RETURN tag, description
         LIMIT 25
       `,
-      { documentVector }
+      { documentVector: passageEmbedding }
     );
 
     suggestedTags = result.records.map(record => ({
@@ -331,13 +329,11 @@ export async function extract({ document, documentName }: ProcessDocumentInputs)
     await session.close();
   }
 
-  // Configure agentic application
   const agent = new Agent({
-    llm, // Language model instance for processing queries
-    objective, // Define agent's behavior and responsibilities (from objective string above)
-    maxRetries: 3, // Number of retry attempts for failed operations or LLM completions
-    typeDefs, // GraphQL schema defining available operations
-    // This interation should be zero-shot. Even if the agent fail to execute GraphQL query once it will correct itself on next iteration
+    llm,
+    objective,
+    maxRetries: 3,
+    typeDefs,
     examples: [
       new Activity({
         kind: ActivityKind.Action,
@@ -368,33 +364,28 @@ export async function extract({ document, documentName }: ProcessDocumentInputs)
       })
     ],
     optimizers: [],
-    // We start with an Observation activity containing the input data because:
-    // 1. It provides the agent with its initial context in a structured format
-    // 2. This matches the agent's expected workflow of receiving and processing observations
     history: [
       new Activity({
         kind: ActivityKind.Observation,
         input: yaml.stringify({
           data: {
-            document,
+            document: pageContent,
             suggestedTags,
           },
         }),
       }),
     ],
-    // Implementation of GraphQL operations
     resolvers: {
       Query: {
       },
       Mutation: {
         suggestNotes: async (_, { notes, tags }: { notes: NoteInput[], tags: TagInput[] }) => {
           const session = conn.session();
-          const tx = session.beginTransaction(); // Start a single transaction
+          const tx = session.beginTransaction();
 
           try {
             console.log('Finding similar tags for each suggested tag...');
 
-            // Get vector representations for all tags in parallel
             const tagVectors = await Promise.all(
               tags.map(async tag => ({
                 tag: tag.tag,
@@ -402,7 +393,6 @@ export async function extract({ document, documentName }: ProcessDocumentInputs)
               }))
             );
 
-            // Find similar tags for each suggested tag
             const similarTags = await Promise.all(
               tagVectors.map(async ({ tag, vector }) => {
                 const result = await tx.run(
@@ -427,10 +417,10 @@ export async function extract({ document, documentName }: ProcessDocumentInputs)
               })
             );
 
-            await tx.commit(); // Commit the transaction after all queries
+            await tx.commit();
             return { similarTags };
           } catch (error) {
-            await tx.rollback(); // Rollback the transaction in case of error
+            await tx.rollback();
             throw error;
           } finally {
             await session.close();
@@ -444,8 +434,7 @@ export async function extract({ document, documentName }: ProcessDocumentInputs)
           try {
             console.log(`Creating ${tags.length} new tags...`);
 
-              // Create only new tags with embeddings
-              await Promise.all(
+            await Promise.all(
               tags.map(async tag => {
                 console.log(`  Generating embedding for tag: ${tag.tag}`);
                 const embedding = await embeddings.embedQuery(tag.description);
@@ -458,8 +447,7 @@ export async function extract({ document, documentName }: ProcessDocumentInputs)
                   {
                     name: tag.tag,
                     description: tag.description,
-                    embedding,
-                    documentName
+                    embedding
                   }
                 );
               })
@@ -467,7 +455,6 @@ export async function extract({ document, documentName }: ProcessDocumentInputs)
 
             console.log(`Creating ${notes.length} new notes...`);
 
-            // Create notes and link them to tags, with embeddings
             const createdNotes = await Promise.all(
               notes.map(async note => {
                 console.log(`  Generating embedding for note: "${note.note.slice(0, 50)}..."`);
@@ -476,10 +463,14 @@ export async function extract({ document, documentName }: ProcessDocumentInputs)
                 console.log(`  Creating note and linking to tags: [${note.tags.join(', ')}]`);
                 const result = await tx.run(
                   /* cypher */`
-                    CREATE (n:Note {content: $content, embedding: $embedding})
+                    CREATE (n:Note {
+                      content: $content,
+                      embedding: $embedding
+                    })
                     WITH n
-                    MATCH (d:Document {name: $documentName})
-                    CREATE (n)-[:EXTRACTED_FROM]->(d)
+                    MATCH (p:Passage)-[:PART_OF]->(d:Document {name: $documentName})
+                    WHERE p.lineStart = $lineStart
+                    CREATE (n)-[:EXTRACTED_FROM]->(p)
                     WITH n
                     UNWIND $tags AS tagName
                     MATCH (t:Tag {name: tagName})
@@ -490,7 +481,8 @@ export async function extract({ document, documentName }: ProcessDocumentInputs)
                     content: note.note,
                     tags: note.tags,
                     embedding,
-                    documentName
+                    documentName: metadata.source.split(sep).at(-1),
+                    lineStart: metadata.loc?.lines?.from
                   }
                 );
 
