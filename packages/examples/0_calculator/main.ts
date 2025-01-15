@@ -113,6 +113,7 @@ const agent = new Agent({
   objective, // Define agent's behavior and responsibilities (from objective string above)
   maxRetries: 3, // Number of retry attempts for failed operations or LLM completions
   typeDefs, // GraphQL schema defining available operations
+  examples: [],
   optimizers: [
     new RemoveErrorActivitiesOptimizer(), // Forget interactions that resulted in syntax or execution errors
     new LengthOptimizer(16), // Limit interaction history to 16 activities

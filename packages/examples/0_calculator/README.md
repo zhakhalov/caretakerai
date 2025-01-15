@@ -12,14 +12,15 @@ The `@caretaker/agent` framework empowers developers to create sophisticated, AI
 
 To illustrate how this works in practice, consider the following interaction log, where the AI agent processes a user's request to solve the expression step by step:
 
-```xml
-<Observation>
+````md
+<BEGIN OBSERVATION>
+```yaml
 data:
   say:
     reply: solve (78 - 13) / (21 * 32 + 18) for me
-
-</Observation>
-<Thought>
+```
+<END OBSERVATION>
+<BEGIN THOUGHT>
 The user has requested to solve the expression (78 - 13) / (21 * 32 + 18).
 
 To solve this, I need to follow the order of operations (PEMDAS):
@@ -33,22 +34,25 @@ Remaining steps:
 3. Divide the results from step 1 and step 2.
 
 I'll first calculate (78 - 13).
-</Thought>
+<END THOUGHT>
 
-<Action>
+<BEGIN ACTION>
+```graphql
 query {
   subtract(input: {left: 78, right: 13}) {
     result
   }
 }
-</Action>
-<Observation>
+```
+<END ACTION>
+<BEGIN OBSERVATION>
+```yaml
 data:
   subtract:
     result: 65
-
-</Observation>
-<Thought>
+```
+<END OBSERVATION>
+<BEGIN THOUGHT>
 The result of the expression (78 - 13) is 65.
 
 Next, I need to calculate the denominator, which is (21 * 32 + 18):
@@ -56,44 +60,50 @@ Next, I need to calculate the denominator, which is (21 * 32 + 18):
 2. Then, add 18 to that result.
 
 I'll start by calculating 21 * 32.
-</Thought>
+<END THOUGHT>
 
-<Action>
+<BEGIN ACTION>
+```graphql
 query {
   multiply(input: {left: 21, right: 32}) {
     result
   }
 }
-</Action>
-<Observation>
+```
+<END ACTION>
+<BEGIN OBSERVATION>
+```yaml
 data:
   multiply:
     result: 672
-
-</Observation>
-<Thought>
+```
+<END OBSERVATION>
+<BEGIN THOUGHT>
 The result of the multiplication (21 * 32) is 672.
 
 Now, I will calculate the denominator by adding 18 to this result:
 1. Add 672 and 18 to get the final denominator.
 
 I'll perform this addition now.
-</Thought>
+<END THOUGHT>
 
-<Action>
+<BEGIN ACTION>
+```graphql
 query {
   add(input: {left: 672, right: 18}) {
     result
   }
 }
-</Action>
-<Observation>
+```
+<END ACTION>
+<BEGIN OBSERVATION>
+```yaml
 data:
   add:
     result: 690
-
-</Observation>
-<Thought>
+```
+<END OBSERVATION>
+<BEGIN THOUGHT>
 The result of the expression (21 * 32 + 18) is 690.
 
 Now that I have both the numerator and denominator:
@@ -101,22 +111,25 @@ Now that I have both the numerator and denominator:
 - Denominator: 690
 
 I will now perform the division (65 / 690) to get the final result.
-</Thought>
+<END THOUGHT>
 
-<Action>
+<BEGIN ACTION>
+```graphql
 query {
   divide(input: {left: 65, right: 690}) {
     result
   }
 }
-</Action>
-<Observation>
+```
+<END ACTION>
+<BEGIN OBSERVATION>
+```yaml
 data:
   divide:
     result: 0.09420289855072464
-
-</Observation>
 ```
+<END OBSERVATION>
+````
 
 This step-by-step process showcases how the AI agent deconstructs and solves problems in a manner similar to a skilled mathematician, making each step transparent to the user. By explaining its thought process, the agent not only solves the problem but also enhances the user's understanding of mathematical principles. This project is a prime example of how agentic applications can blend computational efficiency with pedagogical clarity, providing both practical solutions and an interactive learning experience. Through tools like these, we can open doors to a wide array of applications—from educational software that adapts to each student's learning pace, to intelligent assistants that offer real-time problem-solving insights.
 

@@ -10,13 +10,15 @@ Agentic applications empower AI to interact seamlessly with users, navigating co
 
 The following interaction exemplifies how the RAG agent processes and responds to user inquiries:
 
-```xml
-<Observation>
+````md
+<BEGIN OBSERVATION>
+```yaml
 data:
   say:
     reply: what is the role of the Thought block in ReAct framework?
-</Observation>
-<Thought>
+```
+<END OBSERVATION>
+<BEGIN THOUGHT>
 The user is asking about the specific role of the Thought block within the ReAct framework, which suggests they are looking for insights on how this component functions in that context. This will require a focused search to gather relevant information about the ReAct framework and specifically its Thought block.
 
 Remaining steps:
@@ -25,15 +27,18 @@ Remaining steps:
 3. Synthesize this information to clearly explain its role.
 
 I will now perform the search for information regarding the Thought block in the ReAct framework.
-</Thought>
-<Action>
+<END THOUGHT>
+<BEGIN ACTION>
+```graphql
 query {
   search(input: { query: "role of the Thought block in ReAct framework" }) {
     results
   }
 }
-</Action>
-<Observation>
+```
+<END THOUGHT>
+<BEGIN OBSERVATION>
+```yaml
 data:
   search:
     results:
@@ -47,27 +52,32 @@ data:
       - >-
         first work that demonstrates such a closed-loop system, whichReActbuilds
         on...
-</Observation>
-<Thought>
+```
+<END OBSERVATION>
+<BEGIN THOUGHT>
 The gathered information explains the role of the Thought block in the ReAct framework as part of a method that integrates reasoning with action in large language models. Specifically, the Thought block allows for intuitive design by letting human annotators express their thoughts directly alongside actions taken, promoting flexibility across various tasks.
 
 This block is crucial for decision-making and reasoning, helping the model manage tasks with distinct reasoning needs and improving human interpretability and trustworthiness. It functions synergistically with actions to enhance overall task performance and generalization.
 
 Next, I will synthesize the key points to provide a concise and clear explanation of the role of the Thought block in the ReAct framework.
-</Thought>
-<Action>
+<END THOUGHT>
+<BEGIN ACTION>
+```graphql
 mutation {
   say(message: "The Thought block in the ReAct framework serves a pivotal role by allowing human annotators to express their thoughts alongside actions in a simple and consistent format. This approach facilitates intuitive design, making it easy to create effective prompts. Additionally, the Thought block enhances the model's decision-making and reasoning capabilities, supporting a variety of tasks such as question answering and fact verification. By allowing the model to track and update action plans, the Thought block improves interpretability and trustworthiness, leading to better performance across diverse applications.") {
     reply
   }
 }
-</Action>
-<Observation>
+```
+<END ACTION>
+<BEGIN OBSERVATION>
+```yaml
 data:
   say:
     reply: so ReAct is a ciombination of Chain-of-Thought and Chain-of-Actions?
-</Observation>
-<Thought>
+```
+<END OBSERVATION>
+<BEGIN THOUGHT>
 The user is suggesting that the ReAct framework combines elements of both Chain-of-Thought and Chain-of-Actions. This reflects an understanding of the framework’s operational mechanics. To clarify this concept, I will perform a search to confirm whether ReAct is indeed regarded as a synthesis of these two chains and gather relevant details.
 
 Remaining steps:
@@ -75,15 +85,18 @@ Remaining steps:
 2. Extract insights that validate or elaborate on the user’s suggestion.
 
 I will now carry out this focused search to verify the relationship between these concepts in the ReAct framework.
-</Thought>
-<Action>
+<END THOUGHT>
+<BEGIN ACTION>
+```graphql
 query {
   search(input: { query: "ReAct framework Chain-of-Thought and Chain-of-Actions integration" }) {
     results
   }
 }
-</Action>
-<Observation>
+```
+<END ACTION>
+<BEGIN OBSERVATION>
+```yaml
 data:
   search:
     results:
@@ -97,22 +110,25 @@ data:
       - >-
         perform extensive experiments across diverse benchmarks to showcase the
         advantage...
-</Observation>
-<Thought>
+```
+<END OBSERVATION>
+<BEGIN THOUGHT>
 The results gathered indicate that the ReAct framework indeed integrates concepts from both Chain-of-Thought and Chain-of-Actions. It allows the model to manage thoughts and actions simultaneously for enhanced decision-making and task execution. By permitting the asynchronous occurrence of thoughts and actions, ReAct effectively addresses various reasoning needs across diverse tasks, such as question answering and interactive decision-making.
 
 The framework demonstrates strengths in facilitating human-like task-solving trajectories and can overcome common pitfalls associated with traditional reasoning processes, like error propagation. This confirms the user’s suggestion about ReAct being a combination of these two elements.
 
 Next, I will synthesize the findings into a concise explanation to reinforce the user's understanding.
-</Thought>
-<Action>
+<END THOUGHT>
+<BEGIN ACTION>
+```graphql
 mutation {
   say(message: "Yes, you are correct! The ReAct framework combines both Chain-of-Thought and Chain-of-Actions, enabling the model to process thoughts and actions together. This unique integration allows for more intuitive task-solving and greater flexibility across diverse applications, such as question answering and interactive decision-making. By promoting the asynchronous occurrence of these elements, ReAct enhances decision-making capabilities and addresses challenges like error propagation in reasoning tasks.") {
     reply
   }
 }
-</Action>
 ```
+<END ACTION>
+````
 
 ## Objective Structure
 

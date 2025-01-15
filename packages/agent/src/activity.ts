@@ -1,14 +1,13 @@
-
 /**
  * Enum representing the kinds of activities that an agent can perform.
  */
 export enum ActivityKind {
   /** An observation made by the agent. */
-  Observation = 'Observation',
+  Observation = 'OBSERVATION',
   /** A thought process of the agent. */
-  Thought = 'Thought',
+  Thought = 'THOUGHT',
   /** An action taken by the agent. */
-  Action = 'Action'
+  Action = 'ACTION'
 }
 
 /**
@@ -31,7 +30,25 @@ export class Activity implements ActivityParams {
   }
 
   prompt() {
-    return `<${this.kind}>\n${this.input}\n</${this.kind}>`;
+    if (this.kind === ActivityKind.Observation) {
+      return `
+<BEGIN ${this.kind}>
+\`\`\`yaml
+${this.input}
+\`\`\`
+<END ${this.kind}>
+      `.trim();
+    } else if (this.kind === ActivityKind.Action) {
+      return `
+<BEGIN ${this.kind}>
+\`\`\`graphql
+${this.input}
+\`\`\`
+<END ${this.kind}>
+      `.trim();
+    }
+
+    return `<BEGIN ${this.kind}>\n${this.input}\n<END ${this.kind}>`;
   }
 
   toObject() {
@@ -47,8 +64,8 @@ export class Activity implements ActivityParams {
    */
   static parse(text: string): Activity[] {
     // Ignore all possible free text outside activities tags
-    const pattern = new RegExp(`<(${ActivityKind.Thought}|${ActivityKind.Action}|${ActivityKind.Observation})>(.*?)<\\/\\1>`);
-    const match = text.match(new RegExp(pattern, 'gs'));
+    const pattern = new RegExp(`<BEGIN\\s+(${ActivityKind.Thought}|${ActivityKind.Action}|${ActivityKind.Observation})>([\\s\\S]*?)<END\\s+\\1>`, 'g');
+    const match = text.match(pattern);
 
     // Validate text for any activities
     if (!match) {
@@ -59,10 +76,24 @@ export class Activity implements ActivityParams {
     let activities = match.map(str => {
       const [, kind, input] = str.match(new RegExp(pattern, 's'));
 
+      let cleanedInput = input.trim();
+
+      if (kind === ActivityKind.Observation) {
+        cleanedInput = cleanedInput
+          .replace(/^```yaml?\s*/i, '')  // Remove leading ```yaml with optional whitespace
+          .replace(/\s*```\s*$/, '')     // Remove trailing ``` with optional whitespace
+          .trim();
+      } else if (kind === ActivityKind.Action) {
+        cleanedInput = cleanedInput
+          .replace(/^```graphql?\s*/i, '') // Remove leading ```graphql with optional whitespace
+          .replace(/\s*```\s*$/, '')       // Remove trailing ``` with optional whitespace
+          .trim();
+      }
+
       try {
         return new Activity({
           kind: kind as ActivityKind,
-          input: input.trim(),
+          input: cleanedInput,
         });
       } catch (e) {
         const err = e as Error;

@@ -1,6 +1,6 @@
 {
   "name": "@caretakerai/optimizer",
-  "version": "0.0.22",
+  "version": "0.0.25",
   "description": "",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -19,6 +19,6 @@
     "yaml": "^2.4.0"
   },
   "peerDependencies": {
-    "@caretakerai/agent": "^0.0.20"
+    "@caretakerai/agent": "*"
   }
 }

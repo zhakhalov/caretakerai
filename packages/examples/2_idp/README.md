@@ -11,13 +11,15 @@ Central to our system is SQLite, a lightweight and efficient database management
 
 Consider the following interaction, where a user requests a revenue breakdown by client. This demonstrates how the multi-agent system effectively handles and resolves such queries:
 
-```xml
-<Observation>
+````md
+<BEGIN OBSERVATION>
+```yaml
 data:
   say:
     reply: show me a revenue breakdown by client
-</Observation>
-<Thought>
+```
+<END OBSERVATION>
+<BEGIN THOUGHT>
 The user has requested a revenue breakdown by client. I need to check if I have a relevant database created that contains this information.
 
 Since I haven't checked for the existence of such a database yet, I will proceed to create a new one if it doesn't exist. This will involve defining a table structure that can hold the necessary details such as client names, revenue amounts, and timestamps for the records.
@@ -25,8 +27,9 @@ Since I haven't checked for the existence of such a database yet, I will proceed
 After creating the database schema, I will need to extract the relevant data from documents to populate the database with any available information related to revenue by client.
 
 Next, I will create the database schema for the revenue breakdown.
-</Thought>
-<Action>
+<END THOUGHT>
+<BEGIN ACTION>
+```graphql
 mutation {
   defineDatabase(dbName: "RevenueBreakdownByClient", definitionQuery: """
     CREATE TABLE revenue_breakdown (
@@ -47,39 +50,47 @@ mutation {
     status
   }
 }
-</Action>
-<Observation>
+```
+<END ACTION>
+<BEGIN OBSERVATION>
+```yaml
 data:
   defineDatabase:
     status: success
-</Observation>
-<Thought>
+```
+<END OBSERVATION>
+<BEGIN THOUGHT>
 The database for the revenue breakdown by client has been successfully created.
 
 Next, I need to extract the relevant data from documents to populate this database with information regarding client revenues. I'll prepare the extraction instructions to gather necessary data from the documents and insert them into the new database.
 
 I will now proceed to define the extraction instructions and initiate the extraction process for the documents regarding revenue by client.
-</Thought>
-<Action>
+<END THOUGHT>
+<BEGIN ACTION>
+```graphql
 mutation {
   extract(dbName: "RevenueBreakdownByClient", instructions: "Extract revenue information by client, including client names, total revenue amounts, timestamps, descriptions, and sources.") {
     status
   }
 }
-</Action>
-<Observation>
+```
+<END ACTION>
+<BEGIN OBSERVATION>
+```yaml
 data:
   extract:
     status: success
-</Observation>
-<Thought>
+```
+<END OBSERVATION>
+<BEGIN THOUGHT>
 The extraction process for gathering revenue information by client has been successfully completed. The database should now be populated with relevant data.
 
 Next, I can proceed to query this newly populated database to provide the user with the requested revenue breakdown by client. I will make a SQL query to select all client names and their associated revenue amounts.
 
 Now I'll formulate and execute this SQL query to retrieve the information from the database.
-</Thought>
-<Action>
+<END THOUGHT>
+<BEGIN ACTION>
+```graphql
 query {
   executeSQL(dbName: "RevenueBreakdownByClient", query: """
     SELECT client_name, revenue_amount FROM revenue_breakdown
@@ -88,8 +99,10 @@ query {
     status
   }
 }
-</Action>
-<Observation>
+```
+<END ACTION>
+<BEGIN OBSERVATION>
+```yaml
 data:
   executeSQL:
     queryResult: |
@@ -102,15 +115,17 @@ data:
       | 123 Industries  |        1329.13 |
       +-----------------+----------------+
     status: success
-</Observation>
-<Thought>
+```
+<END OBSERVATION>
+<BEGIN THOUGHT>
 The SQL query has successfully returned the revenue breakdown by client. The results include the client names along with their respective revenue amounts.
 
 Now, I will format this data into a clear and concise message to present to the user. This will help in understanding the distribution of revenue among different clients.
 
 Next, I will communicate the results to the user.
-</Thought>
-<Action>
+<END THOUGHT>
+<BEGIN ACTION>
+```graphql
 mutation {
   say(message: """
     Here is the revenue breakdown by client:
@@ -121,8 +136,9 @@ mutation {
     reply
   }
 }
-</Action>
 ```
+<END ACTION>
+````
 
 This interaction illustrates how the IDP application efficiently coordinates between database definition, data extraction, and query execution to provide users with precise and actionable insights swiftly.
 

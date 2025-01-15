@@ -6,7 +6,11 @@ export class RemoveErrorActivitiesOptimizer implements Optimizer {
     const optimizedActivities = [...activities];
 
     while (true) {
-      const errorObsIdx = optimizedActivities.findIndex(({ input, kind }) => kind === ActivityKind.Observation && parse(input)?.errors);
+      const errorObsIdx = optimizedActivities.findIndex(
+        ({ input, kind }) => (
+          kind === ActivityKind.Observation &&
+          parse(input)?.errors)
+        );
 
       if (errorObsIdx === -1) {
         // No more errors
