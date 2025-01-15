@@ -22,21 +22,31 @@ Traditional LLM frameworks like `langchain` offer immense flexibility but can be
 ```typescript
 const agent = new Agent({
   objective: `You are a Mathematical Assistant that helps solve complex calculations.`,
-  typeDefs: `
+  typeDefs: /* graphql */`
     type Query {
-      add(input: OperationInput!): CalculationResult!
+      subtract(input: OperationInput!): CalculationResult!
     }
   `,
   resolvers: {
     Query: {
-      add: (_, { input: { left, right } }) => ({
-        result: left + right
+      subtract: (_, { input: { left, right } }) => ({
+        result: left - right
       })
     }
-  }
+  },
+  history: [
+    new Activity({
+      kind: ActivityKind.Observation,
+      input: `
+        data:
+          say:
+            reply: What is (78 - 13) / (21 * 32 + 18)?
+      `,
+    })
+  ]
 });
 
-await agent.chat("What is 2 + 2?");
+await agent.invoke();
 ```
 
 ## Key Features
@@ -59,27 +69,39 @@ type Query {
   """
   Adds two numbers together
   """
-  add(input: OperationInput!): CalculationResult!
+  subtract(input: OperationInput!): CalculationResult!
 }
 ```
 
 ### 🔄 Transparent Reasoning
 Watch your agent's thought process in real-time:
-```yaml
-<Thought>
-Breaking down the problem:
-1. First, calculate 21 * 32
-2. Then, add the result to 18
-</Thought>
+````md
+<BEGIN THOUGHT>
+The user has requested to solve the expression (78 - 13) / (21 * 32 + 18).
 
-<Action>
+To solve this, I need to follow the order of operations (PEMDAS):
+1. Calculate the expressions within the parentheses.
+2. Calculate the multiplication and addition within the denominator.
+3. Finally, perform the division.
+
+Remaining steps:
+1. Solve the expression (78 - 13).
+2. Calculate (21 * 32 + 18).
+3. Divide the results from step 1 and step 2.
+
+I'll first calculate (78 - 13).
+<END THOUGHT>
+
+<BEGIN ACTION>
+```graphql
 query {
-  multiply(input: {left: 21, right: 32}) {
+  subtract(input: {left: 78, right: 13}) {
     result
   }
 }
-</Action>
 ```
+<END ACTION>
+````
 
 ## Real-World Examples
 
