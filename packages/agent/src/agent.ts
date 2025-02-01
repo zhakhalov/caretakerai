@@ -199,27 +199,11 @@ export class Agent implements AgentPrams {
     controller.abort(reason);
   }
 
-  async prompt(params?: Record<string, string>) {
-    let activities: Activity[] = [];
-    const retryErrors = [];
-
-    // Prepare chat messages
-    let history = [...this.history];
-
-    if (history.length <= this.examples.length) {
-      history = [...this.examples, ...history];
-    }
-
-    // Apply optimizers
-    for (const opt of this.optimizers) {
-      history = await opt.optimize(history);
-    }
-
-    for (let i = 0; i < this.maxRetries; ++i) {
-      const messages: BaseMessage[] = [];
+  async infer(history: Activity[], params: Record<string, any> = {}) {
+    const messages: BaseMessage[] = [];
       let aiActivities: Activity[] = [];
 
-      [...history, ...activities].forEach(activity => {
+      history.forEach(activity => {
         if (activity.kind === ActivityKind.Observation) {
           // AI generates Thought and Action per messages
           aiActivities.length && messages.push(new AIMessage(aiActivities.map(a => a.prompt()).join(ACTIVITY_SEP)));
@@ -245,7 +229,7 @@ export class Agent implements AgentPrams {
           examples: async () => this.examples.map(h => h.prompt()).join(ACTIVITY_SEP),
       });
 
-      const { value: systemPromptValue } = await systemPrompt.invoke(params ?? {});
+      const { value: systemPromptValue } = await systemPrompt.invoke(params);
 
       const res = await this.llm
         .bind({ stop: [`<${ActivityKind.Observation}>`] }) // Do not allow LLMs to generate observations
@@ -258,27 +242,51 @@ export class Agent implements AgentPrams {
       const { response_metadata } = res;
 
       if (response_metadata?.finish_reason == 'length') {
-        retryErrors.push(new Error('Generation finished due to length reason.'));
-        continue;
+        throw new Error('Generation finished due to length reason.');
       }
 
-      try {
-        let newActivities = Activity.parse(content as string).slice(0, 2);
+      let newActivities = Activity.parse(content as string).slice(0, 2);
 
-        if (!newActivities.length) {
-          throw new Error('No activities generated!');
+      if (!newActivities.length) {
+        throw new Error('No activities generated!');
+      }
+
+      return newActivities;
+  }
+
+  async prompt(params?: Record<string, string>) {
+    let outputHistory: Activity[] = [];
+    const retryErrors = [];
+    // Prepare chat messages
+    let history = [...this.history];
+
+    if (history.length <= this.examples.length) {
+      history = [...this.examples, ...history];
+    }
+
+    // Apply optimizers
+    for (const opt of this.optimizers) {
+      history = await opt.optimize(history);
+    }
+
+    for (let i = 0; i < this.maxRetries; ++i) {
+      const inputHistory = [...history, ...outputHistory];
+
+      if (inputHistory.at(-1)?.kind !== ActivityKind.Action) {
+        try {
+          const newActivities = await this.infer(inputHistory, params);
+          outputHistory.push(...newActivities);
+        } catch (e) {
+          const err = e as Error;
+          this.logger.warn(err.message);
+          retryErrors.push(err);
+          this.logger.debug(`Retry ${i + 1} due to malformed output: ${err.message}`);
+          continue;
         }
 
-        activities.push(...newActivities);
-      } catch (e) {
-        const err = e as Error;
-        this.logger.warn(err.message);
-        retryErrors.push(err);
-        this.logger.debug(`Retry ${i + 1} due to malformed output: ${err.message}`);
-        continue;
       }
 
-      const activity = activities.at(-1);
+      const activity = [...inputHistory, ...outputHistory].at(-1);
 
       // Prompt LLM to provide action if missing
       if (activity.kind === ActivityKind.Thought) {
@@ -297,7 +305,7 @@ export class Agent implements AgentPrams {
           : await graphql({ schema: this.schema, source });
 
         // Add new observation to the iteration history
-        activities.push(new Activity({
+        outputHistory.push(new Activity({
           kind: ActivityKind.Observation,
           input: stringify(result),
         }))
@@ -308,12 +316,12 @@ export class Agent implements AgentPrams {
         }
 
         // Add iteration activities to the agent history and finish iteration
-        this.addActivities(...activities);
+        this.addActivities(...outputHistory);
         return;
       } catch (e) {
         const err = e as Error;
 
-        activities.push(new Activity({
+        outputHistory.push(new Activity({
           kind: ActivityKind.Observation,
           input: err.toString(),
         }));
@@ -335,10 +343,6 @@ export class Agent implements AgentPrams {
 
     // Validate history sequence
     Activity.validateSequence(this.history);
-
-    if (this.history.at(-1)?.kind !== ActivityKind.Observation) {
-      throw new Error('Latest experience must be of Observation kind');
-    }
 
     for (let i = 0; i < this.maxIterations; ++i) {
       await this.prompt(params);
