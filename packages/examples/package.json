@@ -13,7 +13,7 @@
   "license": "ISC",
   "dependencies": {
     "@caretakerai/agent": "*",
-    "@caretakerai/optimizer": "*",
+    "@caretakerai/filters": "*",
     "@inquirer/input": "^1.2.13",
     "@langchain/community": "^0.3.16",
     "@langchain/core": "^0.3.18",

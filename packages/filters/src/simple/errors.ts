@@ -1,8 +1,8 @@
 import { parse } from 'yaml';
-import { Activity, ActivityKind, Optimizer } from '@caretakerai/agent';
+import { Activity, ActivityKind, HistoryTransformer } from '@caretakerai/agent';
 
-export class RemoveErrorActivitiesOptimizer implements Optimizer {
-  async optimize(activities: Activity[]): Promise<Activity[]> {
+export class RemoveErrorActivitiesTransformer implements HistoryTransformer {
+  async transform(activities: Activity[]): Promise<Activity[]> {
     const optimizedActivities = [...activities];
 
     while (true) {
