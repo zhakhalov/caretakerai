@@ -10,7 +10,7 @@ export class ObjectiveTransformer implements ActivityTransformer {
     return null;
   }
 
-  render({ input }: Activity): MessageFieldWithRole {
+  stringify({ input }: Activity): MessageFieldWithRole {
     return {
       role: this.role,
       content: `

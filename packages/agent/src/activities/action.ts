@@ -28,10 +28,10 @@ export class ActionTransformer implements ActivityTransformer {
     }
   }
 
-  render({ input }: Activity): MessageFieldWithRole {
+  stringify({ input }: Activity): MessageFieldWithRole {
     return {
       role: this.role,
-      content:`
+      content: `
 <BEGIN ${this.kind}>
 \`\`\`graphql
 ${input}

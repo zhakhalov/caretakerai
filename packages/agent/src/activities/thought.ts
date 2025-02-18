@@ -24,7 +24,7 @@ export class ThoughtTransformer implements ActivityTransformer {
     }
   }
 
-  render({ input }: Activity): MessageFieldWithRole {
+  stringify({ input }: Activity): MessageFieldWithRole {
     return {
       role: 'assistant',
       content: `<BEGIN ${this.kind}>\n${input}\n<END ${this.kind}>`,

@@ -10,12 +10,14 @@ export class SchemaTransformer implements ActivityTransformer {
     return null;
   }
 
-  render({ input }: Activity): MessageFieldWithRole {
+  stringify({ input }: Activity): MessageFieldWithRole {
     return {
       role: this.role,
       content: `
 <BEGIN ${this.kind}>
+\`\`\`graphql
 ${input}
+\`\`\`
 <END ${this.kind}>
 `.trim(),
     };

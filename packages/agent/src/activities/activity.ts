@@ -24,10 +24,10 @@ export type ActivityTransformer = {
   kind: string;
   role: StringWithAutocomplete<'user' | 'assistant' | MessageType>
   parse(text: string): Activity | null;
-  render(activity: Activity): MessageFieldWithRole;
+  stringify(activity: Activity): MessageFieldWithRole;
 }
 
-export function render(
+export function stringify(
   activities: Activity[],
   transformers: ActivityTransformer[]
 ): MessageFieldWithRole[] {
@@ -38,7 +38,7 @@ export function render(
       throw new Error(`No transformer found for activity kind: ${activity.kind}`);
     }
 
-    const message = transformer.render(activity);
+    const message = transformer.stringify(activity);
     const lastMessage = messages.at(-1);
 
     // Combine with previous message if same role

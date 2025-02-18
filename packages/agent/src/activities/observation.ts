@@ -27,7 +27,7 @@ export class ObservationTransformer implements ActivityTransformer {
     }
   }
 
-  render({ input }: Activity): MessageFieldWithRole {
+  stringify({ input }: Activity): MessageFieldWithRole {
     return {
       role: this.role,
       content:`
