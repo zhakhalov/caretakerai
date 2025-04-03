@@ -13,11 +13,11 @@
   "license": "ISC",
   "dependencies": {
     "@caretakerai/agent": "*",
-    "@caretakerai/optimizer": "*",
+    "@caretakerai/filters": "*",
     "@inquirer/input": "^1.2.13",
     "@langchain/community": "^0.3.16",
     "@langchain/core": "^0.3.18",
-    "@langchain/groq": "^0.0.9",
+    "@langchain/groq": "^0.1.3",
     "@langchain/openai": "^0.3.14",
     "@langchain/textsplitters": "^0.1.0",
     "@or-sdk/graph": "^1.7.26",

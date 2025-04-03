@@ -3,8 +3,8 @@ import yaml from 'yaml';
 import { config } from 'dotenv';
 import inputPrompt from '@inquirer/input';
 import { ChatOpenAI } from '@langchain/openai';
-import { Activity, ActivityKind, Agent } from '@caretakerai/agent';
-import { LengthOptimizer, RemoveErrorActivitiesOptimizer } from '@caretakerai/optimizer';
+import { ActivityKind, Agent } from '@caretakerai/agent';
+import { LengthTransformer, RemoveErrorActivitiesTransformer } from '@caretakerai/filters';
 
 config();
 
@@ -114,13 +114,13 @@ const agent = new Agent({
   maxRetries: 3, // Number of retry attempts for failed operations or LLM completions
   typeDefs, // GraphQL schema defining available operations
   examples: [],
-  optimizers: [
-    new RemoveErrorActivitiesOptimizer(), // Forget interactions that resulted in syntax or execution errors
-    new LengthOptimizer(16), // Limit interaction history to 16 activities
+  inputTransformers: [
+    new RemoveErrorActivitiesTransformer(), // Forget interactions that resulted in syntax or execution errors
+    new LengthTransformer(16), // Limit interaction history to 16 activities
   ],
   // Initialize conversation greeting the agent
   history: [
-    new Activity({
+    {
       kind: ActivityKind.Observation,
       input: yaml.stringify({
         data: {
@@ -129,7 +129,7 @@ const agent = new Agent({
           },
         },
       }),
-    }),
+    },
   ],
 
   // Implementation of GraphQL operations
