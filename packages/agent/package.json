@@ -1,6 +1,6 @@
 {
   "name": "@caretakerai/agent",
-  "version": "0.0.33-beta.2",
+  "version": "0.0.34-beta.4",
   "description": "Single framework for building text-agents",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -10,7 +10,7 @@
   ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "rimraf dist tsconfig.tsbuildinfo && tsc",
+    "build": "rimraf dist tsconfig.publish.tsbuildinfo && tsc -p tsconfig.publish.json",
     "build:watch": "tsc --watch"
   },
   "author": "Viktor Zhakhalov (zhakhalov@gmail.com)",

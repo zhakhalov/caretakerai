@@ -198,24 +198,29 @@ export class Agent implements AgentPrams {
 
     let { content } = res;
     const { response_metadata } = res;
+    const newActivities: Activity[] = [];
 
     if (response_metadata?.finish_reason == 'length') {
       throw new AgentError('Generation finished due to length reason.');
     }
 
     // Parse new activities out of assistant message
-    let newActivities = this.transformers
-      .filter(({ role }) => role === 'assistant')
-      .map(parser => parser.parse(content));
+    for (const transformer of this.transformers.filter(t => t.role === 'assistant')) {
+      const activity = transformer.parse(content);
+
+      if (!activity) {
+        continue;
+      }
+
+      newActivities.push(activity);
+
+      // Remove parsed activity from content
+      content = content.replace(transformer.stringify(activity).content, '');
+    }
 
     if (!newActivities.length) {
       throw new AgentError('No new activities generated!');
     }
-
-    // To close executable loop agent must generate action
-    // if (!newActivities.some(({ kind }) => kind === ActivityKind.Action)) {
-    //   throw new AgentError('No actions generated');
-    // }
 
     return newActivities;
   }
@@ -302,10 +307,6 @@ export class Agent implements AgentPrams {
   }
 
   async invoke() {
-    if (!this.history.length) {
-      throw new AgentError('History must not be empty.');
-    }
-
     for (let i = 0; i < this.maxIterations; ++i) {
       await this.transformAndExecute();
 
